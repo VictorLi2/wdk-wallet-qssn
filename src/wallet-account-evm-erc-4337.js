@@ -140,7 +140,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
 
     const fee = await this._getGasCostInPaymasterToken(tx, paymasterToken)
 
-    return { fee: Number(fee) }
+    return { fee }
   }
 
   /**
@@ -230,7 +230,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
    *
    * @param {EvmTransaction} tx - The transaction to be executed.
    * @param {Object} paymasterToken - The paymaster token configuration.
-   * @returns {Promise<bigint>} The gas cost in the paymaster token.
+   * @returns {Promise<number>} The gas cost in the paymaster token.
    * @private
    */
   async _getGasCostInPaymasterToken (tx, paymasterToken) {
@@ -240,7 +240,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
 
     const exchangeRate = await safe4337Pack.getTokenExchangeRate(paymasterToken.address)
 
-    const gasCostInPaymasterToken = (BigInt(gasCost) * BigInt(exchangeRate) / BigInt(10 ** 18))
+    const gasCostInPaymasterToken = Math.ceil(gasCost * exchangeRate / (10 ** 18))
 
     return gasCostInPaymasterToken
   }
@@ -250,7 +250,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
    *
    * @param {EvmTransaction} tx - The transaction to be executed.
    * @param {Object} paymasterToken - The paymaster token configuration.
-   * @returns {Promise<bigint>} The gas cost in native token.
+   * @returns {Promise<number>} The gas cost in native token.
    * @private
    */
   async _getGaslessTransactionGasCostInEth (tx, paymasterToken) {
@@ -277,7 +277,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
         maxFeePerGas
       } = safeOperation.userOperation
 
-      return (callGasLimit + verificationGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas
+      return Number((callGasLimit + verificationGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas)
     } catch (error) {
       if (error.message.includes('AA50')) {
         throw new Error(
