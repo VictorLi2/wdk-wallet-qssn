@@ -28,6 +28,12 @@ export default class WalletAccountEvmErc4337 {
      * @type {GenericFeeEstimator}
      */
     private _feeEstimator;
+    /**
+     * Returns the balance of the account for the configured paymaster token.
+     *
+     * @returns {Promise<number>} The token balance (in base unit).
+     */
+    getPaymasterTokenBalance(): Promise<number>;
     getAddress(): Promise<any>;
     /**
       * Sends a transaction.
@@ -75,7 +81,7 @@ export default class WalletAccountEvmErc4337 {
      *
      * @param {EvmTransaction} tx - The transaction to be executed.
      * @param {Object} paymasterToken - The paymaster token configuration.
-     * @returns {Promise<bigint>} The gas cost in the paymaster token.
+     * @returns {Promise<number>} The gas cost in the paymaster token.
      * @private
      */
     private _getGasCostInPaymasterToken;
@@ -84,7 +90,7 @@ export default class WalletAccountEvmErc4337 {
      *
      * @param {EvmTransaction} tx - The transaction to be executed.
      * @param {Object} paymasterToken - The paymaster token configuration.
-     * @returns {Promise<bigint>} The gas cost in native token.
+     * @returns {Promise<number>} The gas cost in native token.
      * @private
      */
     private _getGaslessTransactionGasCostInEth;

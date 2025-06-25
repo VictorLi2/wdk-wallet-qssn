@@ -18,8 +18,6 @@ import { WalletAccountEvm } from '@wdk/wallet-evm'
 
 import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
 
-import { Contract } from 'ethers'
-
 /** @typedef {import('@wdk/wallet-evm').KeyPair} KeyPair */
 /** @typedef {import('@wdk/wallet-evm').EvmTransaction} EvmTransaction */
 /** @typedef {import('@wdk/wallet-evm').TransactionResult} TransactionResult */
@@ -42,22 +40,6 @@ import { Contract } from 'ethers'
 
 const SALT_NONCE = '0x69b348339eea4ed93f9d11931c3b894c8f9d8c7663a053024b11cb7eb4e5a1f6'
 const FEE_TOLERANCE_COEFFICIENT = 1.2
-
-function getTransferTx (options) {
-  const { token, recipient, amount } = options
-
-  const abi = ['function transfer(address to, uint256 amount) returns (bool)']
-
-  const contract = new Contract(token, abi)
-
-  const tx = {
-    to: token,
-    value: 0,
-    data: contract.interface.encodeFunctionData('transfer', [recipient, amount])
-  }
-
-  return tx
-}
 
 export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
   /**
@@ -96,6 +78,17 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
       config.provider,
       `0x${config.chainId.toString(16)}`
     )
+  }
+
+  /**
+   * Returns the balance of the account for the configured paymaster token.
+   *
+   * @returns {Promise<number>} The token balance (in base unit).
+   */
+  async getPaymasterTokenBalance () {
+    const { paymasterToken } = this._config
+
+    return await this.getTokenBalance(paymasterToken.address)
   }
 
   async getAddress () {
@@ -157,7 +150,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
 
     const { transferMaxFee } = config ?? this._config
 
-    const tx = getTransferTx(options)
+    const tx = WalletAccountEvm._getTransferTx(options)
 
     const { fee } = await this.quoteSendTransaction(tx, config)
 
@@ -183,7 +176,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
       throw new Error('The wallet must be connected to a provider to quote transfer operations.')
     }
 
-    const tx = getTransferTx(options)
+    const tx = WalletAccountEvm._getTransferTx(options)
 
     const result = await this.quoteSendTransaction(tx, config)
 
