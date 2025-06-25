@@ -116,26 +116,9 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
       throw new Error('The wallet must be connected to a provider to send transaction.')
     }
 
-    const paymasterToken = config?.paymasterToken ?? this._config.paymasterToken
+    const { fee } = await this.quoteSendTransaction(tx, config)
 
-    const { fee } = await this.quoteSendTransaction(tx, {
-      paymasterToken
-    })
-
-    const txs = await this._prependApprove(
-      [tx],
-      [
-        {
-          tokenAddress: paymasterToken.address,
-          spender: this._config.paymasterAddress,
-          amount: BigInt(Math.ceil(fee * FEE_TOLERANCE_COEFFICIENT))
-        }
-      ]
-    )
-
-    const hash = await this._sendGaslessTransaction(txs, {
-      paymasterToken
-    })
+    const hash = await this._sendGaslessTransaction(tx, fee, config)
 
     return { hash, fee }
   }
@@ -155,20 +138,9 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
 
     const { paymasterToken } = config ?? this._config
 
-    const maximumAllowanceTxs = await this._prependApprove(
-      [tx],
-      [
-        {
-          tokenAddress: paymasterToken.address,
-          spender: this._config.paymasterAddress,
-          amount: BigInt(Number.MAX_SAFE_INTEGER)
-        }
-      ]
-    )
+    const fee = await this._getGasCostInPaymasterToken(tx, paymasterToken)
 
-    const fee = await this._getGasCostInPaymasterToken(maximumAllowanceTxs, paymasterToken)
-
-    return { fee: Number(fee) }
+    return { fee }
   }
 
   /**
@@ -183,32 +155,17 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
       throw new Error('The wallet must be connected to a provider to transfer tokens.')
     }
 
-    const { paymasterToken, transferMaxFee } = config ?? this._config
+    const { transferMaxFee } = config ?? this._config
 
     const tx = getTransferTx(options)
 
-    const { fee } = await this.quoteSendTransaction(tx, {
-      paymasterToken
-    })
+    const { fee } = await this.quoteSendTransaction(tx, config)
 
     if (transferMaxFee !== undefined && fee >= transferMaxFee) {
       throw new Error('Exceeded maximum fee cost for transfer operation.')
     }
 
-    const txs = await this._prependApprove(
-      [tx],
-      [
-        {
-          tokenAddress: paymasterToken.address,
-          spender: this._config.paymasterAddress,
-          amount: BigInt(Math.ceil(fee * FEE_TOLERANCE_COEFFICIENT))
-        }
-      ]
-    )
-
-    const hash = await this._sendGaslessTransaction(txs, {
-      paymasterToken
-    })
+    const hash = await this._sendGaslessTransaction(tx, fee, config)
 
     return { hash, fee }
   }
@@ -226,11 +183,9 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
       throw new Error('The wallet must be connected to a provider to quote transfer operations.')
     }
 
-    const paymasterToken = config?.paymasterToken ?? this._config.paymasterToken
-
     const tx = getTransferTx(options)
 
-    const result = await this.quoteSendTransaction(tx, { paymasterToken })
+    const result = await this.quoteSendTransaction(tx, config)
 
     return result
   }
@@ -273,19 +228,19 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
   /**
    * Calculates the gas cost of a gasless transaction in the paymaster token.
    *
-   * @param {Array} txs - The transactions to be executed.
+   * @param {EvmTransaction} tx - The transaction to be executed.
    * @param {Object} paymasterToken - The paymaster token configuration.
-   * @returns {Promise<bigint>} The gas cost in the paymaster token.
+   * @returns {Promise<number>} The gas cost in the paymaster token.
    * @private
    */
-  async _getGasCostInPaymasterToken (txs, paymasterToken) {
-    const gasCost = await this._getGaslessTransactionGasCostInEth(txs, paymasterToken)
+  async _getGasCostInPaymasterToken (tx, paymasterToken) {
+    const gasCost = await this._getGaslessTransactionGasCostInEth(tx, paymasterToken)
 
     const safe4337Pack = await this._getSafe4337Pack()
 
     const exchangeRate = await safe4337Pack.getTokenExchangeRate(paymasterToken.address)
 
-    const gasCostInPaymasterToken = (BigInt(gasCost) * BigInt(exchangeRate) / BigInt(10 ** 18))
+    const gasCostInPaymasterToken = Math.ceil(gasCost * exchangeRate / (10 ** 18))
 
     return gasCostInPaymasterToken
   }
@@ -293,21 +248,22 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
   /**
    * Calculates the gas cost of a gasless transaction in native token.
    *
-   * @param {Array} txs - The transactions to be executed.
+   * @param {EvmTransaction} tx - The transaction to be executed.
    * @param {Object} paymasterToken - The paymaster token configuration.
-   * @returns {Promise<bigint>} The gas cost in native token.
+   * @returns {Promise<number>} The gas cost in native token.
    * @private
    */
-  async _getGaslessTransactionGasCostInEth (txs, paymasterToken) {
+  async _getGaslessTransactionGasCostInEth (tx, paymasterToken) {
     const safe4337Pack = await this._getSafe4337Pack()
 
     try {
       const safeOperation = await safe4337Pack.createTransaction(
         {
-          transactions: txs,
+          transactions: [tx],
           options: {
             feeEstimator: this._feeEstimator,
-            paymasterTokenAddress: paymasterToken.address
+            paymasterTokenAddress: paymasterToken.address,
+            amountToApprove: BigInt(Number.MAX_SAFE_INTEGER)
           }
         }
       )
@@ -321,7 +277,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
         maxFeePerGas
       } = safeOperation.userOperation
 
-      return (callGasLimit + verificationGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas
+      return Number((callGasLimit + verificationGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas)
     } catch (error) {
       if (error.message.includes('AA50')) {
         throw new Error(
@@ -333,44 +289,15 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
   }
 
   /**
-   * Prepends approve transactions to the given transactions.
-   *
-   * @param {Array} txs - The transactions to be executed.
-   * @param {Array} approves - The approve transactions to be prepended.
-   * @returns {Promise<Array>} The transactions with prepended approve transactions.
-   * @private
-   */
-  async _prependApprove (txs, approves) {
-    const transactions = []
-
-    for (const { spender, amount, tokenAddress } of approves) {
-      const address = tokenAddress || this._config.paymasterToken.address
-      const tokenContract = new Contract(
-        address,
-        ['function approve(address,uint256)']
-      )
-
-      transactions.push({
-        to: address,
-        value: 0n,
-        data: tokenContract.interface.encodeFunctionData('approve', [spender, amount])
-      })
-    }
-
-    transactions.push(...txs)
-
-    return transactions
-  }
-
-  /**
    * Sends a gasless transaction using Safe4337Pack.
    *
    * @private
-   * @param {Array} txs - The transactions to be executed.
+   * @param {EvmTransaction} tx - The transaction to be executed.
+   * @param {number} fee - The transaction fee.
    * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
    * @returns {Promise<string>} The transaction's hash.
    */
-  async _sendGaslessTransaction (txs, config) {
+  async _sendGaslessTransaction (tx, fee, config) {
     const paymasterToken = config?.paymasterToken ?? this._config.paymasterToken
 
     const safe4337Pack = await this._getSafe4337Pack()
@@ -379,11 +306,12 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
 
     try {
       const safeOperation = await safe4337Pack.createTransaction({
-        transactions: txs,
+        transactions: [tx],
         options: {
           validUntil: twoMinutesFromNow,
           feeEstimator: this._feeEstimator,
-          paymasterTokenAddress: paymasterToken.address
+          paymasterTokenAddress: paymasterToken.address,
+          amountToApprove: BigInt(Math.ceil(fee * FEE_TOLERANCE_COEFFICIENT))
         }
       })
 

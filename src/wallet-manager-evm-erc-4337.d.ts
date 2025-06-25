@@ -1,3 +1,4 @@
+/** @typedef {import('./wallet-account-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
 export default class WalletManagerEvmErc4337 {
     /**
      * Creates a new wallet manager that implements the ERC-4337 standard and its account abstraction features for EVM blockchains.

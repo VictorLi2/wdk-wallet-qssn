@@ -73,7 +73,7 @@ export default class WalletAccountEvmErc4337 {
     /**
      * Calculates the gas cost of a gasless transaction in the paymaster token.
      *
-     * @param {Array} txs - The transactions to be executed.
+     * @param {EvmTransaction} tx - The transaction to be executed.
      * @param {Object} paymasterToken - The paymaster token configuration.
      * @returns {Promise<bigint>} The gas cost in the paymaster token.
      * @private
@@ -82,26 +82,18 @@ export default class WalletAccountEvmErc4337 {
     /**
      * Calculates the gas cost of a gasless transaction in native token.
      *
-     * @param {Array} txs - The transactions to be executed.
+     * @param {EvmTransaction} tx - The transaction to be executed.
      * @param {Object} paymasterToken - The paymaster token configuration.
      * @returns {Promise<bigint>} The gas cost in native token.
      * @private
      */
     private _getGaslessTransactionGasCostInEth;
     /**
-     * Prepends approve transactions to the given transactions.
-     *
-     * @param {Array} txs - The transactions to be executed.
-     * @param {Array} approves - The approve transactions to be prepended.
-     * @returns {Promise<Array>} The transactions with prepended approve transactions.
-     * @private
-     */
-    private _prependApprove;
-    /**
      * Sends a gasless transaction using Safe4337Pack.
      *
      * @private
-     * @param {Array} txs - The transactions to be executed.
+     * @param {EvmTransaction} tx - The transaction to be executed.
+     * @param {number} fee - The transaction fee.
      * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
      * @returns {Promise<string>} The transaction's hash.
      */
