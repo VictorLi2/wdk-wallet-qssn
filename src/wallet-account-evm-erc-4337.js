@@ -152,7 +152,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
 
     const { paymasterToken, transferMaxFee } = config ?? this._config
 
-    const tx = WalletAccountEvm._getTransferTransaction(options)
+    const tx = await this._getTransferTransaction(options)
 
     const { fee } = await this.quoteSendTransaction(tx, config)
 
@@ -181,7 +181,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
       throw new Error('The wallet must be connected to a provider to quote transfer operations.')
     }
 
-    const tx = WalletAccountEvm._getTransferTransaction(options)
+    const tx = await this._getTransferTransaction(options)
 
     const result = await this.quoteSendTransaction(tx, config)
 
