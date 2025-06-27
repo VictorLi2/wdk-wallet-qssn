@@ -7,13 +7,6 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
      * @param {EvmErc4337WalletConfig} [config] - The configuration object.
      */
     constructor(seed: string | Uint8Array, path: string, config?: EvmErc4337WalletConfig);
-    /**
-     * The evm erc-4337 wallet account configuration.
-     *
-     * @protected
-     * @type {EvmErc4337WalletConfig}
-     */
-    protected _config: EvmErc4337WalletConfig;
     /** @private */
     private _safe4337Pack;
     /** @private */
@@ -35,7 +28,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
     /**
      * Quotes the costs of a send transaction operation.
      *
-     * @see {sendTransaction}
+     * @see {@link sendTransaction}
      * @param {EvmTransaction} tx - The transaction.
      * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
      * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
@@ -52,7 +45,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
     /**
      * Quotes the costs of a transfer operation.
      *
-     * @see {transfer}
+     * @see {@link transfer}
      * @param {TransferOptions} options - The transfer's options.
      * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
      * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
@@ -66,7 +59,6 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
     private _getUserOperationGasCost;
 }
 export type Eip1193Provider = import("ethers").Eip1193Provider;
-export type KeyPair = import("@wdk/wallet-evm").KeyPair;
 export type EvmTransaction = import("@wdk/wallet-evm").EvmTransaction;
 export type TransactionResult = import("@wdk/wallet-evm").TransactionResult;
 export type TransferOptions = import("@wdk/wallet-evm").TransferOptions;
@@ -111,4 +103,4 @@ export type EvmErc4337WalletConfig = {
      */
     transferMaxFee?: number;
 };
-import { WalletAccountEvm } from "@wdk/wallet-evm";
+import { WalletAccountEvm } from '@wdk/wallet-evm';

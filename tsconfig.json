@@ -11,8 +11,6 @@
     "allowJs": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "noResolve": true,
-    "skipLibCheck": true,
-    "typeRoots": ["./node_modules/@wdk"]
+    "skipLibCheck": true
   }
 }
