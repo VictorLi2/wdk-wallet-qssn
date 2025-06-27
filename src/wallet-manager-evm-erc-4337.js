@@ -27,7 +27,7 @@ export default class WalletManagerEvmErc4337 extends WalletManagerEvm {
    * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
    * @param {EvmErc4337WalletConfig} config - The configuration object.
    */
-  constructor (seed, config = {}) {
+  constructor (seed, config) {
     super(seed, config)
 
     /**
