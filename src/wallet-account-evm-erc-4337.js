@@ -49,7 +49,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
    *
    * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
    * @param {string} path - The BIP-44 derivation path (e.g. "0'/0/0").
-   * @param {EvmErc4337WalletConfig} [config] - The configuration object.
+   * @param {EvmErc4337WalletConfig} config - The configuration object.
    */
   constructor (seed, path, config) {
     super(seed, path, config)
