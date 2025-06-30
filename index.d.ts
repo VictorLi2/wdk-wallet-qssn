@@ -6,4 +6,5 @@ export type EvmTransaction = import("@wdk/wallet-evm").EvmTransaction;
 export type TransactionResult = import("@wdk/wallet-evm").TransactionResult;
 export type TransferOptions = import("@wdk/wallet-evm").TransferOptions;
 export type TransferResult = import("@wdk/wallet-evm").TransferResult;
+export type EvmTransactionReceipt = import("@wdk/wallet-evm").EvmTransactionReceipt;
 export type EvmErc4337WalletConfig = import("./src/wallet-manager-evm-erc-4337.js").EvmErc4337WalletConfig;

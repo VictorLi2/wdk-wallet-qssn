@@ -51,6 +51,13 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
      * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
      */
     quoteTransfer(options: TransferOptions, config?: Pick<EvmErc4337WalletConfig, "paymasterToken">): Promise<Omit<TransferResult, "hash">>;
+    /**
+     * Returns a transaction's receipt.
+     *
+     * @param {string} hash - The user operation hash.
+     * @returns {Promise<EvmTransactionReceipt | null>} – The receipt, or null if the transaction has not been included in a block yet.
+     */
+    getTransactionReceipt(hash: string): Promise<EvmTransactionReceipt | null>;
     /** @private */
     private _getSafe4337Pack;
     /** @private */
@@ -63,6 +70,7 @@ export type EvmTransaction = import("@wdk/wallet-evm").EvmTransaction;
 export type TransactionResult = import("@wdk/wallet-evm").TransactionResult;
 export type TransferOptions = import("@wdk/wallet-evm").TransferOptions;
 export type TransferResult = import("@wdk/wallet-evm").TransferResult;
+export type EvmTransactionReceipt = import("@wdk/wallet-evm").EvmTransactionReceipt;
 export type EvmErc4337WalletConfig = {
     /**
      * - The blockchain's id (e.g., 1 for ethereum).

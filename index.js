@@ -20,6 +20,7 @@
 /** @typedef {import('@wdk/wallet-evm').TransactionResult} TransactionResult */
 /** @typedef {import('@wdk/wallet-evm').TransferOptions} TransferOptions */
 /** @typedef {import('@wdk/wallet-evm').TransferResult} TransferResult */
+/** @typedef {import('@wdk/wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
 
 /** @typedef {import('./src/wallet-manager-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
 

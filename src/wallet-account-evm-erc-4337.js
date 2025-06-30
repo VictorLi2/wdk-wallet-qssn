@@ -24,6 +24,7 @@ import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
 /** @typedef {import('@wdk/wallet-evm').TransactionResult} TransactionResult */
 /** @typedef {import('@wdk/wallet-evm').TransferOptions} TransferOptions */
 /** @typedef {import('@wdk/wallet-evm').TransferResult} TransferResult */
+/** @typedef {import('@wdk/wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
 
 /**
  * @typedef {Object} EvmErc4337WalletConfig
@@ -186,6 +187,28 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
     const result = await this.quoteSendTransaction(tx, config)
 
     return result
+  }
+
+  /**
+   * Returns a transaction's receipt.
+   *
+   * @param {string} hash - The user operation hash.
+   * @returns {Promise<EvmTransactionReceipt | null>} – The receipt, or null if the transaction has not been included in a block yet.
+   */
+  async getTransactionReceipt (hash) {
+    if (!this._account.provider) {
+      throw new Error('The wallet must be connected to a provider to get the transaction receipt.')
+    }
+
+    const safe4337Pack = await this._getSafe4337Pack()
+
+    const { transactionHash } = await safe4337Pack.getUserOperationByHash(hash)
+
+    if (!transactionHash) {
+      return null
+    }
+
+    return await super.getTransactionReceipt(transactionHash)
   }
 
   /** @private */
