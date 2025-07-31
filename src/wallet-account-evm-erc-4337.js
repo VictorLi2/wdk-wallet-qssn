@@ -47,7 +47,9 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    * @param {EvmErc4337WalletConfig} config - The configuration object.
    */
   constructor (seed, path, config) {
-    super(undefined, config)
+    const ownerAccount = new WalletAccountEvm(seed, path, config)
+
+    super(ownerAccount._address, config)
 
     /**
      * The evm erc-4337 wallet account configuration.
@@ -58,7 +60,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
     this._config = config
 
     /** @private */
-    this._evmAccount = new WalletAccountEvm(seed, path, config)
+    this._ownerAccount = ownerAccount
   }
 
   /**
@@ -67,7 +69,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    * @type {number}
    */
   get index () {
-    return this._evmAccount.index
+    return this._ownerAccount.index
   }
 
   /**
@@ -76,7 +78,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    * @type {string}
    */
   get path () {
-    return this._evmAccount.path
+    return this._ownerAccount.path
   }
 
   /**
@@ -85,15 +87,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    * @type {KeyPair}
    */
   get keyPair () {
-    return this._evmAccount.keyPair
-  }
-
-  async getAddress () {
-    const safe4337pack = await this._getSafe4337Pack()
-
-    const address = await safe4337pack.protocolKit.getAddress()
-
-    return address
+    return this._ownerAccount.keyPair
   }
 
   /**
@@ -103,7 +97,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    * @returns {Promise<string>} The message's signature.
    */
   async sign (message) {
-    return await this._evmAccount.sign(message)
+    return await this._ownerAccount.sign(message)
   }
 
   /**
@@ -114,7 +108,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    * @returns {Promise<boolean>} True if the signature is valid.
    */
   async verify (message, signature) {
-    return await this._evmAccount.verify(message, signature)
+    return await this._ownerAccount.verify(message, signature)
   }
 
   /**
@@ -164,19 +158,32 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   }
 
   /**
+   * Returns a read-only copy of the account.
+   *
+   * @returns {Promise<WalletAccountReadOnlyEvmErc4337>} The read-only account.
+   */
+  async toReadOnlyAccount () {
+    const address = await this._ownerAccount.getAddress()
+    
+    const readOnlyAccount = new WalletAccountReadOnlyEvmErc4337(address, this._config)
+
+    return readOnlyAccount
+  }
+
+  /**
    * Disposes the wallet account, erasing the private key from the memory.
    */
   dispose () {
-    this._evmAccount.dispose()
+    this._ownerAccount.dispose()
   }
 
   async _getSafe4337Pack () {
     if (!this._safe4337Pack) {
-      const owner = await this._evmAccount.getAddress()
+      const owner = await this._ownerAccount.getAddress()
 
       this._safe4337Pack = await Safe4337Pack.init({
         provider: this._config.provider,
-        signer: this._evmAccount._account,
+        signer: this._ownerAccount._account,
         bundlerUrl: this._config.bundlerUrl,
         safeModulesVersion: this._config.safeModulesVersion,
         options: {

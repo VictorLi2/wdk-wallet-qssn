@@ -43,15 +43,17 @@ import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
  * @property {number} [transferMaxFee] - The maximum fee amount for transfer operations.
  */
 
+const SALT_NONCE = '0x69b348339eea4ed93f9d11931c3b894c8f9d8c7663a053024b11cb7eb4e5a1f6'
+
 export default class WalletAccountReadOnlyEvmErc4337 extends AbstractWalletAccountReadOnly {
   /**
    * Creates a new read-only evm [erc-4337](https://www.erc4337.io/docs) wallet account.
    *
-   * @param {string | undefined} address - The safe account's address.
+   * @param {string} address - The evm account's address.
    * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The configuration object.
    */
   constructor (address, config) {
-    super(address)
+    super(undefined)
 
     /**
      * The read-only evm erc-4337 wallet account configuration.
@@ -79,6 +81,17 @@ export default class WalletAccountReadOnlyEvmErc4337 extends AbstractWalletAccou
       config.provider,
       `0x${config.chainId.toString(16)}`
     )
+
+    /** @private */
+    this._ownerAccountAddress = address
+  }
+
+  async getAddress () {
+    const safe4337pack = await this._getSafe4337Pack()
+
+    const address = await safe4337pack.protocolKit.getAddress()
+
+    return address
   }
 
   /**
@@ -176,15 +189,14 @@ export default class WalletAccountReadOnlyEvmErc4337 extends AbstractWalletAccou
    */
   async _getSafe4337Pack () {
     if (!this._safe4337Pack) {
-      const address = await this.getAddress()
-
       this._safe4337Pack = await Safe4337Pack.init({
         provider: this._config.provider,
         bundlerUrl: this._config.bundlerUrl,
         safeModulesVersion: this._config.safeModulesVersion,
         options: {
-          safeAddress: address,
-          threshold: 1
+          owners: [this._ownerAccountAddress],
+          threshold: 1,
+          saltNonce: SALT_NONCE
         },
         paymasterOptions: {
           paymasterUrl: this._config.paymasterUrl,

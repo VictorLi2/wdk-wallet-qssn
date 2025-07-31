@@ -20,6 +20,8 @@ import { BrowserProvider, JsonRpcProvider } from 'ethers'
 
 import WalletAccountEvmErc4337 from './wallet-account-evm-erc-4337.js'
 
+/** @typedef {import('ethers').Provider} Provider */
+
 /** @typedef {import('@wdk/wallet-evm').FeeRates} FeeRates */
 
 /** @typedef {import('./wallet-account-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
@@ -46,13 +48,23 @@ export default class WalletManagerEvmErc4337 extends AbstractWalletManager {
      */
     this._config = config
 
-    /** @private */
+    /**
+     * A map between derivation paths and wallet accounts. It contains all the wallet accounts that have been accessed through the {@link getAccount} and {@link getAccountByPath} methods.
+     *
+     * @protected
+     * @type {{ [path: string]: WalletAccountEvmErc4337 }}
+     */
     this._accounts = {}
 
     const { provider } = config
 
     if (provider) {
-      /** @private */
+      /**
+       * An ethers provider to interact with a node of the blockchain.
+       *
+       * @protected
+       * @type {Provider | undefined}
+       */
       this._provider = typeof provider === 'string'
         ? new JsonRpcProvider(provider)
         : new BrowserProvider(provider)
@@ -94,7 +106,7 @@ export default class WalletManagerEvmErc4337 extends AbstractWalletManager {
   /**
    * Returns the current fee rates.
    *
-   * @returns {Promise<FeeRates>} The fee rates.
+   * @returns {Promise<FeeRates>} The fee rates (in weis).
    */
   async getFeeRates () {
     const feeData = await this._provider.getFeeData()

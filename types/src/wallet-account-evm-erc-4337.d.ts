@@ -66,6 +66,12 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
      */
     transfer(options: TransferOptions, config?: Pick<EvmErc4337WalletConfig, "paymasterToken" | "transferMaxFee">): Promise<TransferResult>;
     /**
+     * Returns a read-only copy of the account.
+     *
+     * @returns {Promise<WalletAccountReadOnlyEvmErc4337>} The read-only account.
+     */
+    toReadOnlyAccount(): Promise<WalletAccountReadOnlyEvmErc4337>
+    /**
      * Disposes the wallet account, erasing the private key from the memory.
      */
     dispose(): void;
