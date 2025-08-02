@@ -65,15 +65,15 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
 
     /**
      * The safe's implementation of the erc-4337 standard.
-     * 
+     *
      * @protected
-     * @type {Safe4337Pack | undefined} 
+     * @type {Safe4337Pack | undefined}
      */
     this._safe4337Pack = undefined
 
     /**
      * The safe's fee estimator.
-     * 
+     *
      * @protected
      * @type {GenericFeeEstimator}
      */
@@ -181,9 +181,9 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     return await evmReadOnlyAccount.getTransactionReceipt(transactionHash)
   }
 
-  /** 
-   * Returns the safe's erc-4337 pack of the account. 
-   * 
+  /**
+   * Returns the safe's erc-4337 pack of the account.
+   *
    * @protected
    * @returns {Promise<Safe4337Pack>} The safe's erc-4337 pack.
    */

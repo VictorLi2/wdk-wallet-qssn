@@ -164,7 +164,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    */
   async toReadOnlyAccount () {
     const address = await this._ownerAccount.getAddress()
-    
+
     const readOnlyAccount = new WalletAccountReadOnlyEvmErc4337(address, this._config)
 
     return readOnlyAccount
