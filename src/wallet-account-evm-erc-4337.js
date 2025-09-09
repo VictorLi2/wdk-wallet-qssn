@@ -33,7 +33,7 @@ import WalletAccountReadOnlyEvmErc4337, { SALT_NONCE } from './wallet-account-re
 
 /** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
 
-const FEE_TOLERANCE_COEFFICIENT = 1.2
+const FEE_TOLERANCE_COEFFICIENT = 120n
 
 /** @implements {IWalletAccount} */
 export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc4337 {
@@ -123,7 +123,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
 
     const hash = await this._sendUserOperation([tx].flat(), {
       paymasterTokenAddress: paymasterToken.address,
-      amountToApprove: BigInt(Math.ceil(fee * FEE_TOLERANCE_COEFFICIENT))
+      amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
     })
 
     return { hash, fee }
@@ -149,7 +149,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
 
     const hash = await this._sendUserOperation([tx], {
       paymasterTokenAddress: paymasterToken.address,
-      amountToApprove: BigInt(Math.ceil(fee * FEE_TOLERANCE_COEFFICIENT))
+      amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
     })
 
     return { hash, fee }
