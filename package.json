@@ -18,7 +18,7 @@
     "lint:fix": "standard --fix"
   },
   "dependencies": {
-    "@wdk-safe-global/relay-kit": "4.1.0",
+    "@wdk-safe-global/relay-kit": "4.1.3",
     "@wdk/wallet": "https://github.com/davi0kprogramsthings/wdk-wallet.git#develop",
     "@wdk/wallet-evm": "https://github.com/davi0kprogramsthings/wdk-wallet-evm.git#develop",
     "bare-wdk-runtime": "2.0.0",
