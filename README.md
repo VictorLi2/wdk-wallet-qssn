@@ -1,4 +1,4 @@
-# @wdk/wallet-evm-erc-4337
+# @tetherto/wdk-wallet-evm-erc-4337
 
 **Note**: This package is currently in beta. Please test thoroughly in development environments before using in production.
 
@@ -20,17 +20,17 @@ For detailed documentation about the complete WDK ecosystem, visit [docs.wallet.
 
 ## ⬇️ Installation
 
-To install the `@wdk/wallet-evm-erc-4337` package, follow these instructions:
+To install the `@tetherto/wdk-wallet-evm-erc-4337` package, follow these instructions:
 
 You can install it using npm:
 
 ```bash
-npm install @wdk/wallet-evm-erc-4337
+npm install @tetherto/wdk-wallet-evm-erc-4337
 ```
 
 ## 🚀 Quick Start
 
-### Importing from `@wdk/wallet-evm-erc-4337`
+### Importing from `@tetherto/wdk-wallet-evm-erc-4337`
 
 ### Creating a New Wallet
 
@@ -38,7 +38,7 @@ npm install @wdk/wallet-evm-erc-4337
 import WalletManagerEvmErc4337, { 
   WalletAccountEvmErc4337, 
   WalletAccountReadOnlyEvmErc4337 
-} from '@wdk/wallet-evm-erc-4337'
+} from '@tetherto/wdk-wallet-evm-erc-4337'
 
 // Use a BIP-39 seed phrase (replace with your own secure phrase)
 const seedPhrase = 'test only example nut use this real life secret phrase must random'
@@ -67,7 +67,7 @@ const readOnlyAccount = await account.toReadOnlyAccount()
 ### Managing Multiple Accounts
 
 ```javascript
-import WalletManagerEvmErc4337 from '@wdk/wallet-evm-erc-4337'
+import WalletManagerEvmErc4337 from '@tetherto/wdk-wallet-evm-erc-4337'
 
 // Assume wallet is already created
 // Get the first account (index 0)
@@ -97,7 +97,7 @@ console.log('Custom account address:', customAddress)
 For accounts where you have the seed phrase and full access:
 
 ```javascript
-import WalletManagerEvmErc4337 from '@wdk/wallet-evm-erc-4337'
+import WalletManagerEvmErc4337 from '@tetherto/wdk-wallet-evm-erc-4337'
 
 // Assume wallet and account are already created
 // Get native token balance (in wei)
@@ -119,7 +119,7 @@ console.log('Token balance:', tokenBalance);
 For addresses where you don't have the seed phrase:
 
 ```javascript
-import { WalletAccountReadOnlyEvmErc4337 } from '@wdk/wallet-evm-erc-4337'
+import { WalletAccountReadOnlyEvmErc4337 } from '@tetherto/wdk-wallet-evm-erc-4337'
 
 // Create a read-only account
 const readOnlyAccount = new WalletAccountReadOnlyEvmErc4337('0x636e9c21f27d9401ac180666bf8DC0D3FcEb0D24', { // Smart contract wallet address
@@ -231,14 +231,14 @@ wallet.dispose()
 
 | Class | Description | Methods |
 |-------|-------------|---------|
-| [WalletManagerEvmErc4337](#walletmanagerevmerc4337) | Main class for managing ERC-4337 wallets. Extends `WalletManager` from `@wdk/wallet`. | [Constructor](#constructor), [Methods](#methods) |
-| [WalletAccountEvmErc4337](#walletaccountevmerc4337) | Individual ERC-4337 wallet account implementation. Extends `WalletAccountReadOnlyEvmErc4337` and implements `IWalletAccount` from `@wdk/wallet`. | [Constructor](#constructor-1), [Methods](#methods-1), [Properties](#properties) |
-| [WalletAccountReadOnlyEvmErc4337](#walletaccountreadonlyevmerc4337) | Read-only ERC-4337 wallet account. Extends `WalletAccountReadOnly` from `@wdk/wallet`. | [Constructor](#constructor-2), [Methods](#methods-2) |
+| [WalletManagerEvmErc4337](#walletmanagerevmerc4337) | Main class for managing ERC-4337 wallets. Extends `WalletManager` from `@tetherto/wdk-wallet`. | [Constructor](#constructor), [Methods](#methods) |
+| [WalletAccountEvmErc4337](#walletaccountevmerc4337) | Individual ERC-4337 wallet account implementation. Extends `WalletAccountReadOnlyEvmErc4337` and implements `IWalletAccount` from `@tetherto/wdk-wallet`. | [Constructor](#constructor-1), [Methods](#methods-1), [Properties](#properties) |
+| [WalletAccountReadOnlyEvmErc4337](#walletaccountreadonlyevmerc4337) | Read-only ERC-4337 wallet account. Extends `WalletAccountReadOnly` from `@tetherto/wdk-wallet`. | [Constructor](#constructor-2), [Methods](#methods-2) |
 
 ### WalletManagerEvmErc4337
 
 The main class for managing ERC-4337 compliant wallets.  
-Extends `WalletManager` from `@wdk/wallet`.
+Extends `WalletManager` from `@tetherto/wdk-wallet`.
 
 #### Constructor
 
@@ -343,7 +343,7 @@ wallet.dispose()
 
 ### WalletAccountEvmErc4337
 
-Represents an individual ERC-4337 wallet account. Implements `IWalletAccount` from `@wdk/wallet`.
+Represents an individual ERC-4337 wallet account. Implements `IWalletAccount` from `@tetherto/wdk-wallet`.
 
 #### Constructor
 
