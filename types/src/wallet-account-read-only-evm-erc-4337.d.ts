@@ -24,9 +24,16 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      * The safe's fee estimator.
      *
      * @protected
-     * @type {GenericFeeEstimator}
+     * @type {GenericFeeEstimator | undefined}
      */
-    protected _feeEstimator: GenericFeeEstimator;
+    protected _feeEstimator: GenericFeeEstimator | undefined;
+    /**
+     * The chain id.
+     *
+     * @protected
+     * @type {bigint | undefined}
+     */
+    protected _chainId: bigint | undefined;
     /** @private */
     private _ownerAccountAddress;
     /**
@@ -72,14 +79,30 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      */
     getTransactionReceipt(hash: string): Promise<EvmTransactionReceipt | null>;
     /**
+     * Returns the current allowance for the given token and spender.
+     * @param {string} token - The token’s address.
+     * @param {string} spender - The spender’s address.
+     * @returns {Promise<bigint>} - The allowance.
+     */
+    getAllowance(token: string, spender: string): Promise<bigint>;
+    /**
      * Returns the safe's erc-4337 pack of the account.
      *
      * @protected
      * @returns {Promise<Safe4337Pack>} The safe's erc-4337 pack.
      */
     protected _getSafe4337Pack(): Promise<Safe4337Pack>;
+    /**
+     * Returns the chain id.
+     *
+     * @protected
+     * @returns {Promise<bigint>} - The chain id.
+     */
+    protected _getChainId(): Promise<bigint>;
     /** @private */
     private _getEvmReadOnlyAccount;
+    /** @private */
+    private _getFeeEstimator;
     /** @private */
     private _getUserOperationGasCost;
 }

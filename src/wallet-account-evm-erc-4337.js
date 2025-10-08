@@ -32,6 +32,7 @@ import WalletAccountReadOnlyEvmErc4337, { SALT_NONCE } from './wallet-account-re
 /** @typedef {import('@tetherto/wdk-wallet-evm').TransactionResult} TransactionResult */
 /** @typedef {import('@tetherto/wdk-wallet-evm').TransferOptions} TransferOptions */
 /** @typedef {import('@tetherto/wdk-wallet-evm').TransferResult} TransferResult */
+/** @typedef {import('@tetherto/wdk-wallet-evm').ApproveOptions} ApproveOptions */
 
 /** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
 
@@ -116,11 +117,15 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   /**
    * Approves a specific amount of tokens to a spender.
    *
-   * @param {ApproveOptions} options The approve options.
-   * @returns {Promise<TransactionResult>} The transaction’s result.
-   * @throws {Error} If trying to approve usdts on ethereum with allowance not equal to zero (due to the usdt allowance reset requirement).
+   * @param {ApproveOptions} options - The approve options.
+   * @returns {Promise<TransactionResult>} - The transaction’s result.
+   * @throws {Error} - If trying to approve usdts on ethereum with allowance not equal to zero (due to the usdt allowance reset requirement).
    */
   async approve (options) {
+    if (!this._ownerAccount._provider) {
+      throw new Error('The wallet must be connected to a provider to approve funds.')
+    }
+
     const { token, spender, amount } = options
     const chainId = await this._getChainId()
 
