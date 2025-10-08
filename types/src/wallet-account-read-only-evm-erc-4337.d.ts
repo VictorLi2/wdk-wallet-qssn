@@ -84,11 +84,11 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     private _getUserOperationGasCost;
 }
 export type Eip1193Provider = import("ethers").Eip1193Provider;
-export type EvmTransaction = import("@wdk/wallet-evm").EvmTransaction;
-export type TransactionResult = import("@wdk/wallet-evm").TransactionResult;
-export type TransferOptions = import("@wdk/wallet-evm").TransferOptions;
-export type TransferResult = import("@wdk/wallet-evm").TransferResult;
-export type EvmTransactionReceipt = import("@wdk/wallet-evm").EvmTransactionReceipt;
+export type EvmTransaction = import("@tetherto/wdk-wallet-evm").EvmTransaction;
+export type TransactionResult = import("@tetherto/wdk-wallet-evm").TransactionResult;
+export type TransferOptions = import("@tetherto/wdk-wallet-evm").TransferOptions;
+export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
+export type EvmTransactionReceipt = import("@tetherto/wdk-wallet-evm").EvmTransactionReceipt;
 export type EvmErc4337WalletConfig = {
     /**
      * - The blockchain's id (e.g., 1 for ethereum).
@@ -129,5 +129,5 @@ export type EvmErc4337WalletConfig = {
      */
     transferMaxFee?: number | bigint;
 };
-import { WalletAccountReadOnly } from '@wdk/wallet';
+import { WalletAccountReadOnly } from '@tetherto/wdk-wallet';
 import { GenericFeeEstimator, Safe4337Pack } from '@wdk-safe-global/relay-kit';

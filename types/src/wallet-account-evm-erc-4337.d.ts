@@ -80,11 +80,11 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
     private _sendUserOperation;
 }
 export type Eip1193Provider = import("ethers").Eip1193Provider;
-export type IWalletAccount = import("@wdk/wallet").IWalletAccount;
-export type KeyPair = import("@wdk/wallet-evm").KeyPair;
-export type EvmTransaction = import("@wdk/wallet-evm").EvmTransaction;
-export type TransactionResult = import("@wdk/wallet-evm").TransactionResult;
-export type TransferOptions = import("@wdk/wallet-evm").TransferOptions;
-export type TransferResult = import("@wdk/wallet-evm").TransferResult;
+export type IWalletAccount = import("@tetherto/wdk-wallet").IWalletAccount;
+export type KeyPair = import("@tetherto/wdk-wallet-evm").KeyPair;
+export type EvmTransaction = import("@tetherto/wdk-wallet-evm").EvmTransaction;
+export type TransactionResult = import("@tetherto/wdk-wallet-evm").TransactionResult;
+export type TransferOptions = import("@tetherto/wdk-wallet-evm").TransferOptions;
+export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
 export type EvmErc4337WalletConfig = import("./wallet-account-read-only-evm-erc-4337.js").EvmErc4337WalletConfig;
 import WalletAccountReadOnlyEvmErc4337 from './wallet-account-read-only-evm-erc-4337.js';

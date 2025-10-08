@@ -14,20 +14,20 @@
 
 'use strict'
 
-import { WalletAccountReadOnly } from '@wdk/wallet'
+import { WalletAccountReadOnly } from '@tetherto/wdk-wallet'
 
-import { WalletAccountReadOnlyEvm } from '@wdk/wallet-evm'
+import { WalletAccountReadOnlyEvm } from '@tetherto/wdk-wallet-evm'
 
 import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
 
 /** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
 
-/** @typedef {import('@wdk/wallet-evm').EvmTransaction} EvmTransaction */
-/** @typedef {import('@wdk/wallet-evm').TransactionResult} TransactionResult */
-/** @typedef {import('@wdk/wallet-evm').TransferOptions} TransferOptions */
-/** @typedef {import('@wdk/wallet-evm').TransferResult} TransferResult */
+/** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransaction} EvmTransaction */
+/** @typedef {import('@tetherto/wdk-wallet-evm').TransactionResult} TransactionResult */
+/** @typedef {import('@tetherto/wdk-wallet-evm').TransferOptions} TransferOptions */
+/** @typedef {import('@tetherto/wdk-wallet-evm').TransferResult} TransferResult */
 
-/** @typedef {import('@wdk/wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
+/** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
 
 /**
  * @typedef {Object} EvmErc4337WalletConfig
