@@ -22,6 +22,7 @@
 /** @typedef {import('@tetherto/wdk-wallet-evm').TransferOptions} TransferOptions */
 /** @typedef {import('@tetherto/wdk-wallet-evm').TransferResult} TransferResult */
 /** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
+/** @typedef {import('@tetherto/wdk-wallet-evm').ApproveOptions} ApproveOptions */
 
 /** @typedef {import('./src/wallet-manager-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
 
