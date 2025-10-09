@@ -8,4 +8,5 @@ export type TransactionResult = import("@tetherto/wdk-wallet-evm").TransactionRe
 export type TransferOptions = import("@tetherto/wdk-wallet-evm").TransferOptions;
 export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
 export type EvmTransactionReceipt = import("@tetherto/wdk-wallet-evm").EvmTransactionReceipt;
+export type ApproveOptions = import("@tetherto/wdk-wallet-evm").ApproveOptions;
 export type EvmErc4337WalletConfig = import("./src/wallet-manager-evm-erc-4337.js").EvmErc4337WalletConfig;
