@@ -65,7 +65,8 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
    * Returns the wallet account at a specific index (see [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)).
    *
    * @example
-   * // Returns the account with derivation path m/44'/60'/0'/0/1
+   * // Returns the account with derivation path m/44'/9000'/65'/0'/0/1
+   * // (security level 65 is ML-DSA-65, determined by config.securityLevel)
    * const account = await wallet.getAccount(1);
    * @param {number} [index] - The index of the account to get (default: 0).
    * @returns {Promise<WalletAccountEvmErc4337>} The account.
@@ -78,7 +79,8 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
    * Returns the wallet account at a specific BIP-44 derivation path.
    *
    * @example
-   * // Returns the account with derivation path m/44'/60'/0'/0/1
+   * // Returns the account with derivation path m/44'/9000'/65'/0'/0/1
+   * // Full path structure: m/44'/9000'/[securityLevel]'/[account]'/0/[addressIndex]
    * const account = await wallet.getAccountByPath("0'/0/1");
    * @param {string} path - The derivation path (e.g. "0'/0/0").
    * @returns {Promise<WalletAccountEvmErc4337>} The account.

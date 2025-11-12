@@ -89,6 +89,9 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
 
     /** @private */
     this._ownerAccountAddress = address
+
+    /** @private */
+    this._saltNonce = undefined
   }
 
   /**
@@ -211,6 +214,9 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
    */
   async _getSafe4337Pack () {
     if (!this._safe4337Pack) {
+      // Determine salt nonce - use custom salt if provided, otherwise use default
+      const saltNonce = this._saltNonce || SALT_NONCE
+
       this._safe4337Pack = await Safe4337Pack.init({
         provider: this._config.provider,
         bundlerUrl: this._config.bundlerUrl,
@@ -218,7 +224,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
         options: {
           owners: [this._ownerAccountAddress],
           threshold: 1,
-          saltNonce: SALT_NONCE
+          saltNonce
         },
         paymasterOptions: {
           paymasterUrl: this._config.paymasterUrl,

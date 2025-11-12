@@ -24,6 +24,10 @@
     "lint:fix": "standard --fix"
   },
   "dependencies": {
+    "@noble/hashes": "1.6.1",
+    "@noble/post-quantum": "0.5.2",
+    "@scure/bip32": "1.6.0",
+    "@scure/bip39": "1.5.0",
     "@tetherto/wdk-wallet": "^1.0.0-beta.1",
     "@tetherto/wdk-wallet-evm": "^1.0.0-beta.3",
     "@wdk-safe-global/relay-kit": "4.1.3",

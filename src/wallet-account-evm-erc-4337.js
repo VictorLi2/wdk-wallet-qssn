@@ -14,13 +14,12 @@
 
 'use strict'
 
-import { Contract } from 'ethers'
-
-import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
+import { Contract, keccak256 } from 'ethers'
 
 import { Safe4337Pack } from '@wdk-safe-global/relay-kit'
 
-import WalletAccountReadOnlyEvmErc4337, { SALT_NONCE } from './wallet-account-read-only-evm-erc-4337.js'
+import WalletAccountReadOnlyEvmErc4337 from './wallet-account-read-only-evm-erc-4337.js'
+import { WalletAccountMldsa } from './wallet-account-mldsa.js'
 
 /** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
 
@@ -43,16 +42,18 @@ const USDT_MAINNET_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
 /** @implements {IWalletAccount} */
 export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc4337 {
   /**
-   * Creates a new evm [erc-4337](https://www.erc4337.io/docs) wallet account.
+   * Creates a new evm [erc-4337](https://www.erc4337.io/docs) wallet account with ML-DSA post-quantum signatures.
    *
    * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
    * @param {string} path - The BIP-44 derivation path (e.g. "0'/0/0").
    * @param {EvmErc4337WalletConfig} config - The configuration object.
    */
   constructor (seed, path, config) {
-    const ownerAccount = new WalletAccountEvm(seed, path, config)
+    // Create ML-DSA owner account (synchronous now!)
+    const ownerAccount = new WalletAccountMldsa(seed, path, config)
 
-    super(ownerAccount._address, config)
+    // Get owner address synchronously
+    super(ownerAccount.getAddress(), config)
 
     /**
      * The evm erc-4337 wallet account configuration.
@@ -64,6 +65,11 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
 
     /** @private */
     this._ownerAccount = ownerAccount
+
+    // Compute deterministic salt from ML-DSA public key hash
+    // This ensures the same ML-DSA key always deploys to the same Safe address
+    /** @private */
+    this._saltNonce = keccak256(ownerAccount.getPublicKey())
   }
 
   /**
@@ -180,7 +186,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   async transfer (options, config) {
     const { paymasterToken, transferMaxFee } = config ?? this._config
 
-    const tx = await WalletAccountEvm._getTransferTransaction(options)
+    const tx = this._getTransferTransaction(options)
 
     const { fee } = await this.quoteSendTransaction(tx, config)
 
@@ -197,12 +203,43 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   }
 
   /**
+   * Helper method to create transfer transaction data.
+   *
+   * @private
+   * @param {TransferOptions} options - Transfer options
+   * @returns {Object} Transaction object with to, value, and data
+   */
+  _getTransferTransaction (options) {
+    const { token, recipient, amount } = options
+
+    // Check if it's a native token transfer (address(0) or 0x0)
+    if (!token || token === '0x0' || token === '0x0000000000000000000000000000000000000000') {
+      // Native token transfer
+      return {
+        to: recipient,
+        value: BigInt(amount),
+        data: '0x'
+      }
+    }
+
+    // ERC20 token transfer
+    const abi = ['function transfer(address to, uint256 amount) returns (bool)']
+    const contract = new Contract(token, abi)
+
+    return {
+      to: token,
+      value: 0n,
+      data: contract.interface.encodeFunctionData('transfer', [recipient, BigInt(amount)])
+    }
+  }
+
+  /**
    * Returns a read-only copy of the account.
    *
    * @returns {Promise<WalletAccountReadOnlyEvmErc4337>} The read-only account.
    */
   async toReadOnlyAccount () {
-    const address = await this._ownerAccount.getAddress()
+    const address = this._ownerAccount.getAddress()
 
     const readOnlyAccount = new WalletAccountReadOnlyEvmErc4337(address, this._config)
 
@@ -218,17 +255,22 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
 
   async _getSafe4337Pack () {
     if (!this._safe4337Pack) {
-      const owner = await this._ownerAccount.getAddress()
+      const owner = this._ownerAccount.getAddress()
+
+      // Create an ethers-compatible signer wrapper for ML-DSA
+      // Since we're not verifying on-chain, the validator nodes will verify ML-DSA signatures off-chain
+      // and submit transactions using their own trusted EOA
+      const mldsaSigner = this._createMLDSASigner()
 
       this._safe4337Pack = await Safe4337Pack.init({
         provider: this._config.provider,
-        signer: this._ownerAccount._account,
+        signer: mldsaSigner,
         bundlerUrl: this._config.bundlerUrl,
         safeModulesVersion: this._config.safeModulesVersion,
         options: {
           owners: [owner],
           threshold: 1,
-          saltNonce: SALT_NONCE
+          saltNonce: this._saltNonce // Use ML-DSA public key hash as salt for deterministic Safe address
         },
         paymasterOptions: {
           paymasterUrl: this._config.paymasterUrl,
@@ -243,6 +285,52 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
     }
 
     return this._safe4337Pack
+  }
+
+  /**
+   * Creates an ethers-compatible signer that wraps ML-DSA signing.
+   * The validator nodes will verify ML-DSA signatures off-chain.
+   *
+   * @private
+   * @returns {Object} An ethers-compatible signer object
+   */
+  _createMLDSASigner () {
+    const ownerAccount = this._ownerAccount
+
+    return {
+      // Required by ethers Signer interface
+      getAddress: () => {
+        return Promise.resolve(ownerAccount.getAddress())
+      },
+
+      // Sign message using ML-DSA
+      signMessage: async (message) => {
+        return await ownerAccount.sign(message)
+      },
+
+      // Sign transaction using ML-DSA
+      signTransaction: async (transaction) => {
+        // For ERC-4337, this is typically not used as UserOperations are signed differently
+        // But we implement it for compatibility
+        const txHash = keccak256(JSON.stringify(transaction))
+        return await ownerAccount.sign(txHash)
+      },
+
+      // Sign typed data using ML-DSA
+      signTypedData: async (domain, types, value) => {
+        // EIP-712 signing - hash and sign with ML-DSA
+        const payload = JSON.stringify({ domain, types, value })
+        return await ownerAccount.sign(payload)
+      },
+
+      // Provider access (if available)
+      provider: this._config.provider,
+
+      // Connect to a provider
+      connect: (provider) => {
+        throw new Error('ML-DSA signer does not support connect()')
+      }
+    }
   }
 
   /** @private */
