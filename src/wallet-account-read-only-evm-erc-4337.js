@@ -43,15 +43,13 @@ import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
  */
 
-export const SALT_NONCE = '0x69b348339eea4ed93f9d11931c3b894c8f9d8c7663a053024b11cb7eb4e5a1f6'
-
 export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOnly {
   /**
    * Creates a new read-only evm [erc-4337](https://www.erc4337.io/docs) wallet account.
    *
    * @param {string} address - The evm account's address.
    * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The configuration object.
-   * @param {string} [saltNonce] - Optional custom salt nonce for Safe address derivation.
+   * @param {string} saltNonce - Salt nonce for Safe address derivation (keccak256 of ML-DSA public key).
    */
   constructor (address, config, saltNonce) {
     super(undefined)
@@ -92,7 +90,11 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     this._ownerAccountAddress = address
     
     /** @private */
-    this._saltNonce = saltNonce || SALT_NONCE
+    this._saltNonce = saltNonce
+    
+    if (!this._saltNonce) {
+      throw new Error('saltNonce is required for dual-key Safe address binding')
+    }
   }
 
   /**
