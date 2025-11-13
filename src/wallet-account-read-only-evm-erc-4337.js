@@ -51,8 +51,9 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
    *
    * @param {string} address - The evm account's address.
    * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The configuration object.
+   * @param {string} [saltNonce] - Optional custom salt nonce for Safe address derivation.
    */
-  constructor (address, config) {
+  constructor (address, config, saltNonce) {
     super(undefined)
 
     /**
@@ -89,6 +90,9 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
 
     /** @private */
     this._ownerAccountAddress = address
+    
+    /** @private */
+    this._saltNonce = saltNonce || SALT_NONCE
   }
 
   /**
@@ -218,7 +222,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
         options: {
           owners: [this._ownerAccountAddress],
           threshold: 1,
-          saltNonce: SALT_NONCE
+          saltNonce: this._saltNonce
         },
         paymasterOptions: {
           paymasterUrl: this._config.paymasterUrl,

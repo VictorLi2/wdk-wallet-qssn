@@ -32,11 +32,15 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
   /**
    * Creates a new wallet manager for evm blockchains that implements the [erc-4337](https://www.erc4337.io/docs) standard and its account abstraction features.
    *
-   * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
+   * @param {string | Uint8Array} ecdsaSeed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase for ECDSA keys.
+   * @param {string | Uint8Array} mldsaSeed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase for ML-DSA keys.
    * @param {EvmErc4337WalletConfig} config - The configuration object.
    */
-  constructor (seed, config) {
-    super(seed, config)
+  constructor (ecdsaSeed, mldsaSeed, config) {
+    super(ecdsaSeed, config)
+    
+    /** @private */
+    this._mldsaSeed = mldsaSeed
 
     /**
      * The evm erc-4337 wallet configuration.
@@ -85,7 +89,7 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
    */
   async getAccountByPath (path) {
     if (!this._accounts[path]) {
-      const account = new WalletAccountEvmErc4337(this.seed, path, this._config)
+      const account = new WalletAccountEvmErc4337(this.seed, this._mldsaSeed, path, this._config)
 
       this._accounts[path] = account
     }
