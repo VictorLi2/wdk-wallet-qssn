@@ -14,13 +14,14 @@
 
 'use strict'
 
-import { Contract } from 'ethers'
+import { Contract, keccak256 } from 'ethers'
 
 import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
 
 import { Safe4337Pack } from '@wdk-safe-global/relay-kit'
 
-import WalletAccountReadOnlyEvmErc4337, { SALT_NONCE } from './wallet-account-read-only-evm-erc-4337.js'
+import WalletAccountReadOnlyQssn from './wallet-account-read-only-qssn.js'
+import { WalletAccountMldsa } from './wallet-account-mldsa.js'
 
 /** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
 
@@ -34,36 +35,52 @@ import WalletAccountReadOnlyEvmErc4337, { SALT_NONCE } from './wallet-account-re
 /** @typedef {import('@tetherto/wdk-wallet-evm').TransferResult} TransferResult */
 /** @typedef {import('@tetherto/wdk-wallet-evm').ApproveOptions} ApproveOptions */
 
-/** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
+/** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').QssnWalletConfig} QssnWalletConfig */
 
 const FEE_TOLERANCE_COEFFICIENT = 120n
 
 const USDT_MAINNET_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
 
 /** @implements {IWalletAccount} */
-export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc4337 {
+export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
   /**
-   * Creates a new evm [erc-4337](https://www.erc4337.io/docs) wallet account.
+   * Creates a new quantum-safe wallet account with ERC-4337 account abstraction and ML-DSA signatures.
    *
-   * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
+   * @param {string | Uint8Array} ecdsaSeed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase for ECDSA keys.
+   * @param {string | Uint8Array} mldsaSeed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase for ML-DSA keys.
    * @param {string} path - The BIP-44 derivation path (e.g. "0'/0/0").
-   * @param {EvmErc4337WalletConfig} config - The configuration object.
+   * @param {QssnWalletConfig} config - The configuration object.
    */
-  constructor (seed, path, config) {
-    const ownerAccount = new WalletAccountEvm(seed, path, config)
-
-    super(ownerAccount._address, config)
+  constructor (ecdsaSeed, mldsaSeed, path, config) {
+    // Create ECDSA account with standard Ethereum path
+    const ownerAccount = new WalletAccountEvm(ecdsaSeed, path, config)
+    
+    // Create ML-DSA account with security level in path
+    const securityLevel = config.mldsaSecurityLevel || 65
+    const mldsaAccount = new WalletAccountMldsa(mldsaSeed, path, { ...config, securityLevel })
+    
+    // Compute salt from ML-DSA public key for deterministic Safe address
+    const saltNonce = keccak256(mldsaAccount.getPublicKey())
+    
+    // Initialize parent with ECDSA address and custom salt
+    super(ownerAccount._address, config, saltNonce)
 
     /**
-     * The evm erc-4337 wallet account configuration.
+     * The quantum-safe wallet account configuration.
      *
      * @protected
-     * @type {EvmErc4337WalletConfig}
+     * @type {QssnWalletConfig}
      */
     this._config = config
 
     /** @private */
     this._ownerAccount = ownerAccount
+    
+    /** @private */
+    this._mldsaAccount = mldsaAccount
+    
+    /** @private */
+    this._saltNonce = saltNonce
   }
 
   /**
@@ -94,13 +111,21 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   }
 
   /**
-   * Signs a message.
+   * Signs a message with both ECDSA and ML-DSA.
    *
    * @param {string} message - The message to sign.
-   * @returns {Promise<string>} The message's signature.
+   * @returns {Promise<{ecdsa: string, mldsa: string}>} Both signatures.
    */
   async sign (message) {
-    return await this._ownerAccount.sign(message)
+    const [ecdsaSignature, mldsaSignature] = await Promise.all([
+      this._ownerAccount.sign(message),
+      this._mldsaAccount.sign(message)
+    ])
+
+    return {
+      ecdsa: ecdsaSignature,
+      mldsa: mldsaSignature
+    }
   }
 
   /**
@@ -154,7 +179,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    * Sends a transaction.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx -  The transaction, or an array of multiple transactions to send in batch.
-   * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
    * @returns {Promise<TransactionResult>} The transaction's result.
    */
   async sendTransaction (tx, config) {
@@ -174,7 +199,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    * Transfers a token to another address.
    *
    * @param {TransferOptions} options - The transfer's options.
-   * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken' | 'transferMaxFee'>} [config] - If set, overrides the 'paymasterToken' and 'transferMaxFee' options defined in the wallet account configuration.
+   * @param {Pick<QssnWalletConfig, 'paymasterToken' | 'transferMaxFee'>} [config] - If set, overrides the 'paymasterToken' and 'transferMaxFee' options defined in the wallet account configuration.
    * @returns {Promise<TransferResult>} The transfer's result.
    */
   async transfer (options, config) {
@@ -199,21 +224,129 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   /**
    * Returns a read-only copy of the account.
    *
-   * @returns {Promise<WalletAccountReadOnlyEvmErc4337>} The read-only account.
+   * @returns {Promise<WalletAccountReadOnlyQssn>} The read-only account.
    */
   async toReadOnlyAccount () {
     const address = await this._ownerAccount.getAddress()
 
-    const readOnlyAccount = new WalletAccountReadOnlyEvmErc4337(address, this._config)
+    const readOnlyAccount = new WalletAccountReadOnlyQssn(address, this._config, this._saltNonce)
 
     return readOnlyAccount
   }
 
   /**
-   * Disposes the wallet account, erasing the private key from the memory.
+   * Returns the ML-DSA public key.
+   *
+   * @returns {Uint8Array} The ML-DSA public key.
+   */
+  getMLDSAPublicKey () {
+    return this._mldsaAccount.getPublicKey()
+  }
+
+  /**
+   * Returns the ML-DSA public key as hex string.
+   *
+   * @returns {string} The ML-DSA public key (0x...).
+   */
+  getMLDSAPublicKeyHex () {
+    return this._mldsaAccount.getPublicKeyHex()
+  }
+
+  /**
+   * Returns the ECDSA address (Safe owner).
+   *
+   * @returns {string} The ECDSA address.
+   */
+  getECDSAAddress () {
+    return this._ownerAccount._address
+  }
+
+  /**
+   * Returns the salt nonce used for Safe address derivation.
+   *
+   * @returns {string} The salt nonce (keccak256 of ML-DSA public key).
+   */
+  getSaltNonce () {
+    return this._saltNonce
+  }
+
+  /**
+   * Returns the underlying ML-DSA account.
+   *
+   * @returns {WalletAccountMldsa} The ML-DSA account.
+   */
+  getMLDSAAccount () {
+    return this._mldsaAccount
+  }
+
+  /**
+   * Gets the UserOperation data including ML-DSA signature and public key.
+   * This is useful for debugging and verifying what data is being sent to the bundler/validator.
+   *
+   * @param {EvmTransaction | EvmTransaction[]} tx - The transaction(s) to create a UserOperation for.
+   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - Optional config override.
+   * @returns {Promise<Object>} The UserOperation with ML-DSA data.
+   */
+  async getUserOperationWithMLDSA (tx, config) {
+    const { paymasterToken } = config ?? this._config
+    const safe4337Pack = await this._getSafe4337Pack()
+    const address = await this.getAddress()
+    const twoMinutesFromNow = Math.floor(Date.now() / 1_000) + 2 * 60
+
+    const safeOperation = await safe4337Pack.createTransaction({
+      transactions: [tx].flat().map(t => ({ from: address, ...t })),
+      options: {
+        validUntil: twoMinutesFromNow,
+        feeEstimator: await this._getFeeEstimator(),
+        paymasterTokenAddress: paymasterToken.address,
+        amountToApprove: BigInt(Number.MAX_SAFE_INTEGER)
+      }
+    })
+
+    // Get the UserOperation hash
+    const userOpHash = await safe4337Pack.getSignatureWithModuleAddress(safeOperation, this._config.chainId)
+    
+    // Sign with ML-DSA
+    const mldsaSignature = await this._mldsaAccount.sign(userOpHash)
+    const mldsaPublicKey = this._mldsaAccount.getPublicKeyHex()
+
+    return {
+      userOperation: safeOperation.data,
+      mldsaSignature,
+      mldsaPublicKey,
+      userOpHash,
+      safeAddress: address,
+      ecdsaOwner: await this._ecdsaAccount.getAddress()
+    }
+  }
+
+  /**
+   * Signs a message with ML-DSA (for off-chain verification).
+   *
+   * @param {string} message - The message to sign.
+   * @returns {Promise<string>} The ML-DSA signature.
+   */
+  async signWithMLDSA (message) {
+    return await this._mldsaAccount.sign(message)
+  }
+
+  /**
+   * Verifies an ML-DSA signature.
+   *
+   * @param {string} message - The original message.
+   * @param {string} signature - The ML-DSA signature.
+   * @returns {Promise<boolean>} True if valid.
+   */
+  async verifyMLDSA (message, signature) {
+    return await this._mldsaAccount.verify(message, signature)
+  }
+
+  /**
+   * Disposes the wallet account, erasing the private keys from memory.
    */
   dispose () {
     this._ownerAccount.dispose()
+    this._mldsaAccount.dispose()
   }
 
   async _getSafe4337Pack () {
@@ -228,7 +361,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
         options: {
           owners: [owner],
           threshold: 1,
-          saltNonce: SALT_NONCE
+          saltNonce: this._saltNonce
         },
         paymasterOptions: {
           paymasterUrl: this._config.paymasterUrl,
@@ -263,7 +396,22 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
         }
       })
 
+      // Get the UserOperation hash that needs to be signed
+      const userOpHash = await safe4337Pack.getSignatureWithModuleAddress(safeOperation, this._config.chainId)
+      
+      // Sign with ML-DSA
+      const mldsaSignature = await this._mldsaAccount.sign(userOpHash)
+      const mldsaPublicKey = this._mldsaAccount.getPublicKeyHex()
+      
+      // Sign with ECDSA (for now, until bundler/validator handles ML-DSA)
       const signedSafeOperation = await safe4337Pack.signSafeOperation(safeOperation)
+      
+      // Add ML-DSA data to the signed operation
+      // The bundler/validator will extract and verify these fields
+      signedSafeOperation.data.mldsaSignature = mldsaSignature
+      signedSafeOperation.data.mldsaPublicKey = mldsaPublicKey
+      signedSafeOperation.data.ecdsaOwner = await this._ecdsaAccount.getAddress()
+      signedSafeOperation.data.saltNonce = this._saltNonce
 
       return await safe4337Pack.executeTransaction({
         executable: signedSafeOperation

@@ -24,10 +24,10 @@
 /** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
 /** @typedef {import('@tetherto/wdk-wallet-evm').ApproveOptions} ApproveOptions */
 
-/** @typedef {import('./src/wallet-manager-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
+/** @typedef {import('./src/wallet-manager-qssn.js').QssnWalletConfig} QssnWalletConfig */
 
-export { default } from './src/wallet-manager-evm-erc-4337.js'
+export { default } from './src/wallet-manager-qssn.js'
 
-export { default as WalletAccountReadOnlyEvmErc4337 } from './src/wallet-account-read-only-evm-erc-4337.js'
+export { default as WalletAccountReadOnlyQssn } from './src/wallet-account-read-only-qssn.js'
 
-export { default as WalletAccountEvmErc4337 } from './src/wallet-account-evm-erc-4337.js'
+export { default as WalletAccountQssn } from './src/wallet-account-qssn.js'

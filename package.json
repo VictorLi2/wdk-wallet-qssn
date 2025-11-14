@@ -1,19 +1,24 @@
 {
-  "name": "@tetherto/wdk-wallet-evm-erc-4337",
-  "version": "1.0.0-beta.3",
-  "description": "A simple package to manage BIP-32 wallets for evm blockchains, which implement the erc-4337 standard and its account abstraction features",
+  "name": "@tetherto/wdk-wallet-qssn",
+  "version": "1.0.0-alpha.1",
+  "description": "Quantum-safe wallet development kit for EVM blockchains with ERC-4337 account abstraction and ML-DSA (FIPS 204) post-quantum signatures",
   "keywords": [
     "wdk",
     "wallet",
+    "quantum-safe",
+    "post-quantum",
+    "ml-dsa",
+    "fips-204",
     "bip-32",
     "ethereum",
-    "erc-4337"
+    "erc-4337",
+    "account-abstraction"
   ],
   "author": "Tether",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/tetherto/wdk-wallet-evm-erc-4337.git"
+    "url": "git://github.com/tetherto/wdk-wallet-qssn.git"
   },
   "main": "index.js",
   "type": "module",
@@ -24,6 +29,10 @@
     "lint:fix": "standard --fix"
   },
   "dependencies": {
+    "@noble/hashes": "1.6.1",
+    "@noble/post-quantum": "0.5.2",
+    "@scure/bip32": "1.6.0",
+    "@scure/bip39": "1.5.0",
     "@tetherto/wdk-wallet": "^1.0.0-beta.1",
     "@tetherto/wdk-wallet-evm": "^1.0.0-beta.3",
     "@wdk-safe-global/relay-kit": "4.1.3",
