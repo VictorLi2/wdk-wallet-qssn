@@ -1,18 +1,38 @@
-export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOnly {
+/** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
+/** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransaction} EvmTransaction */
+/** @typedef {import('@tetherto/wdk-wallet-evm').TransactionResult} TransactionResult */
+/** @typedef {import('@tetherto/wdk-wallet-evm').TransferOptions} TransferOptions */
+/** @typedef {import('@tetherto/wdk-wallet-evm').TransferResult} TransferResult */
+/** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
+/**
+ * @typedef {Object} QssnWalletConfig
+ * @property {number} chainId - The blockchain's id (e.g., 1 for ethereum).
+ * @property {string | Eip1193Provider} provider - The url of the rpc provider, or an instance of a class that implements eip-1193.
+ * @property {string} bundlerUrl - The url of the bundler service.
+ * @property {string} paymasterUrl - The url of the paymaster service.
+ * @property {string} paymasterAddress - The address of the paymaster smart contract.
+ * @property {string} entryPointAddress - The address of the entry point smart contract.
+ * @property {string} safeModulesVersion - The safe modules version.
+ * @property {Object} paymasterToken - The paymaster token configuration.
+ * @property {string} paymasterToken.address - The address of the paymaster token.
+ * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
+ */
+export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     /**
-     * Creates a new read-only evm [erc-4337](https://www.erc4337.io/docs) wallet account.
+     * Creates a new read-only quantum-safe wallet account with ERC-4337 account abstraction.
      *
      * @param {string} address - The evm account's address.
-     * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The configuration object.
+     * @param {Omit<QssnWalletConfig, 'transferMaxFee'>} config - The configuration object.
+     * @param {string} saltNonce - Salt nonce for Safe address derivation (keccak256 of ML-DSA public key).
      */
-    constructor(address: string, config: Omit<EvmErc4337WalletConfig, "transferMaxFee">);
+    constructor(address: string, config: Omit<QssnWalletConfig, "transferMaxFee">, saltNonce: string);
     /**
-     * The read-only evm erc-4337 wallet account configuration.
+     * The read-only quantum-safe wallet account configuration.
      *
      * @protected
-     * @type {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>}
+     * @type {Omit<QssnWalletConfig, 'transferMaxFee'>}
      */
-    protected _config: Omit<EvmErc4337WalletConfig, "transferMaxFee">;
+    protected _config: Omit<QssnWalletConfig, "transferMaxFee">;
     /**
      * The safe's implementation of the erc-4337 standard.
      *
@@ -36,19 +56,8 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     protected _chainId: bigint | undefined;
     /** @private */
     private _ownerAccountAddress;
-    /**
-     * Returns the account's eth balance.
-     *
-     * @returns {Promise<bigint>} The eth balance (in weis).
-     */
-    getBalance(): Promise<bigint>;
-    /**
-     * Returns the account balance for a specific token.
-     *
-     * @param {string} tokenAddress - The smart contract address of the token.
-     * @returns {Promise<bigint>} The token balance (in base unit).
-     */
-    getTokenBalance(tokenAddress: string): Promise<bigint>;
+    /** @private */
+    private _saltNonce;
     /**
      * Returns the account's balance for the paymaster token provided in the wallet account configuration.
      *
@@ -59,18 +68,18 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      * Quotes the costs of a send transaction operation.
      *
      * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
-     * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+     * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
      * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
      */
-    quoteSendTransaction(tx: EvmTransaction | EvmTransaction[], config?: Pick<EvmErc4337WalletConfig, "paymasterToken">): Promise<Omit<TransactionResult, "hash">>;
+    quoteSendTransaction(tx: EvmTransaction | EvmTransaction[], config?: Pick<QssnWalletConfig, "paymasterToken">): Promise<Omit<TransactionResult, "hash">>;
     /**
      * Quotes the costs of a transfer operation.
      *
      * @param {TransferOptions} options - The transfer's options.
-     * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+     * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
      * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
      */
-    quoteTransfer(options: TransferOptions, config?: Pick<EvmErc4337WalletConfig, "paymasterToken">): Promise<Omit<TransferResult, "hash">>;
+    quoteTransfer(options: TransferOptions, config?: Pick<QssnWalletConfig, "paymasterToken">): Promise<Omit<TransferResult, "hash">>;
     /**
      * Returns a transaction's receipt.
      *
@@ -112,7 +121,7 @@ export type TransactionResult = import("@tetherto/wdk-wallet-evm").TransactionRe
 export type TransferOptions = import("@tetherto/wdk-wallet-evm").TransferOptions;
 export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
 export type EvmTransactionReceipt = import("@tetherto/wdk-wallet-evm").EvmTransactionReceipt;
-export type EvmErc4337WalletConfig = {
+export type QssnWalletConfig = {
     /**
      * - The blockchain's id (e.g., 1 for ethereum).
      */
@@ -153,4 +162,5 @@ export type EvmErc4337WalletConfig = {
     transferMaxFee?: number | bigint;
 };
 import { WalletAccountReadOnly } from '@tetherto/wdk-wallet';
-import { GenericFeeEstimator, Safe4337Pack } from '@wdk-safe-global/relay-kit';
+import { Safe4337Pack } from '@wdk-safe-global/relay-kit';
+import { GenericFeeEstimator } from '@wdk-safe-global/relay-kit';

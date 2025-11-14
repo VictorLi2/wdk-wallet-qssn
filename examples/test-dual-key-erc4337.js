@@ -8,7 +8,7 @@
  * - Deterministic Safe address binding via saltNonce
  */
 
-import WalletManagerEvmErc4337 from '../src/wallet-manager-evm-erc-4337.js'
+import WalletManagerQssn from '../src/wallet-manager-qssn.js'
 
 console.log('🔐 Testing Dual-Key ERC-4337 Integration\n')
 
@@ -32,7 +32,7 @@ const config = {
 
 try {
   // Create wallet manager with dual seeds
-  const wallet = new WalletManagerEvmErc4337(ecdsaSeed, mldsaSeed, config)
+  const wallet = new WalletManagerQssn(ecdsaSeed, mldsaSeed, config)
   
   // Get account (index 0)
   const account = await wallet.getAccount(0)

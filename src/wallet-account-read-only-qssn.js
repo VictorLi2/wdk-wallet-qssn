@@ -30,7 +30,7 @@ import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
 /** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
 
 /**
- * @typedef {Object} EvmErc4337WalletConfig
+ * @typedef {Object} QssnWalletConfig
  * @property {number} chainId - The blockchain's id (e.g., 1 for ethereum).
  * @property {string | Eip1193Provider} provider - The url of the rpc provider, or an instance of a class that implements eip-1193.
  * @property {string} bundlerUrl - The url of the bundler service.
@@ -43,22 +43,22 @@ import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
  */
 
-export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOnly {
+export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
   /**
-   * Creates a new read-only evm [erc-4337](https://www.erc4337.io/docs) wallet account.
+   * Creates a new read-only quantum-safe wallet account with ERC-4337 account abstraction.
    *
    * @param {string} address - The evm account's address.
-   * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The configuration object.
+   * @param {Omit<QssnWalletConfig, 'transferMaxFee'>} config - The configuration object.
    * @param {string} saltNonce - Salt nonce for Safe address derivation (keccak256 of ML-DSA public key).
    */
   constructor (address, config, saltNonce) {
     super(undefined)
 
     /**
-     * The read-only evm erc-4337 wallet account configuration.
+     * The read-only quantum-safe wallet account configuration.
      *
      * @protected
-     * @type {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>}
+     * @type {Omit<QssnWalletConfig, 'transferMaxFee'>}
      */
     this._config = config
 
@@ -148,7 +148,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
    * Quotes the costs of a send transaction operation.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
-   * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
    * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
    */
   async quoteSendTransaction (tx, config) {
@@ -166,7 +166,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
    * Quotes the costs of a transfer operation.
    *
    * @param {TransferOptions} options - The transfer's options.
-   * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
    * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
    */
   async quoteTransfer (options, config) {
