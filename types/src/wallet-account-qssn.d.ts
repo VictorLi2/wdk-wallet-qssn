@@ -148,6 +148,6 @@ export type TransactionResult = import("@tetherto/wdk-wallet-evm").TransactionRe
 export type TransferOptions = import("@tetherto/wdk-wallet-evm").TransferOptions;
 export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
 export type ApproveOptions = import("@tetherto/wdk-wallet-evm").ApproveOptions;
-export type QssnWalletConfig = any;
+export type QssnWalletConfig = import("./wallet-account-read-only-qssn.js").QssnWalletConfig;
 import WalletAccountReadOnlyQssn from './wallet-account-read-only-qssn.js';
 import { WalletAccountMldsa } from './wallet-account-mldsa.js';

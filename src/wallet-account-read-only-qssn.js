@@ -88,10 +88,10 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 
     /** @private */
     this._ownerAccountAddress = address
-    
+
     /** @private */
     this._saltNonce = saltNonce
-    
+
     if (!this._saltNonce) {
       throw new Error('saltNonce is required for dual-key Safe address binding')
     }

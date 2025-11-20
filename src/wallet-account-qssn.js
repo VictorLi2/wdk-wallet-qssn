@@ -35,7 +35,7 @@ import { WalletAccountMldsa } from './wallet-account-mldsa.js'
 /** @typedef {import('@tetherto/wdk-wallet-evm').TransferResult} TransferResult */
 /** @typedef {import('@tetherto/wdk-wallet-evm').ApproveOptions} ApproveOptions */
 
-/** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').QssnWalletConfig} QssnWalletConfig */
+/** @typedef {import('./wallet-account-read-only-qssn.js').QssnWalletConfig} QssnWalletConfig */
 
 const FEE_TOLERANCE_COEFFICIENT = 120n
 
@@ -54,14 +54,14 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
   constructor (ecdsaSeed, mldsaSeed, path, config) {
     // Create ECDSA account with standard Ethereum path
     const ownerAccount = new WalletAccountEvm(ecdsaSeed, path, config)
-    
+
     // Create ML-DSA account with security level in path
     const securityLevel = config.mldsaSecurityLevel || 65
     const mldsaAccount = new WalletAccountMldsa(mldsaSeed, path, { ...config, securityLevel })
-    
+
     // Compute salt from ML-DSA public key for deterministic Safe address
     const saltNonce = keccak256(mldsaAccount.getPublicKey())
-    
+
     // Initialize parent with ECDSA address and custom salt
     super(ownerAccount._address, config, saltNonce)
 
@@ -75,10 +75,10 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
     /** @private */
     this._ownerAccount = ownerAccount
-    
+
     /** @private */
     this._mldsaAccount = mldsaAccount
-    
+
     /** @private */
     this._saltNonce = saltNonce
   }
@@ -305,7 +305,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
     // Get the UserOperation hash
     const userOpHash = await safe4337Pack.getSignatureWithModuleAddress(safeOperation, this._config.chainId)
-    
+
     // Sign with ML-DSA
     const mldsaSignature = await this._mldsaAccount.sign(userOpHash)
     const mldsaPublicKey = this._mldsaAccount.getPublicKeyHex()
@@ -398,20 +398,27 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
       // Get the UserOperation hash that needs to be signed
       const userOpHash = await safe4337Pack.getSignatureWithModuleAddress(safeOperation, this._config.chainId)
-      
+
       // Sign with ML-DSA
       const mldsaSignature = await this._mldsaAccount.sign(userOpHash)
       const mldsaPublicKey = this._mldsaAccount.getPublicKeyHex()
-      
-      // Sign with ECDSA (for now, until bundler/validator handles ML-DSA)
+
+      // Sign with ECDSA
       const signedSafeOperation = await safe4337Pack.signSafeOperation(safeOperation)
-      
-      // Add ML-DSA data to the signed operation
-      // The bundler/validator will extract and verify these fields
-      signedSafeOperation.data.mldsaSignature = mldsaSignature
-      signedSafeOperation.data.mldsaPublicKey = mldsaPublicKey
-      signedSafeOperation.data.ecdsaOwner = await this._ecdsaAccount.getAddress()
-      signedSafeOperation.data.saltNonce = this._saltNonce
+
+      // Pack QSSN signature: combine ECDSA + ML-DSA signatures into signature field
+      // Format: ABI-encoded [ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner]
+      // Note: saltNonce is derived as keccak256(mldsaPublicKey), no need to include it
+      const { AbiCoder } = await import('ethers')
+      const abiCoder = new AbiCoder()
+
+      const ecdsaOwner = await this._ecdsaAccount.getAddress()
+      const ecdsaSignature = signedSafeOperation.data.signature
+
+      signedSafeOperation.data.signature = abiCoder.encode(
+        ['bytes', 'bytes', 'bytes', 'address'],
+        [ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner]
+      )
 
       return await safe4337Pack.executeTransaction({
         executable: signedSafeOperation

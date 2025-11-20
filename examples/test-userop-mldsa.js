@@ -42,7 +42,7 @@ async function testUserOpWithMLDSA () {
 
   try {
     console.log('📝 Creating UserOperation with ML-DSA data...\n')
-    
+
     const userOpData = await account.getUserOperationWithMLDSA(testTx)
 
     console.log('✅ UserOperation Structure:')
@@ -82,7 +82,6 @@ async function testUserOpWithMLDSA () {
     console.log('   These fields are read by the bundler for verification')
     console.log('   but NOT included in the on-chain transaction.')
     console.log()
-
   } catch (error) {
     console.log('⚠️  Note: This test requires a running bundler/validator')
     console.log('   Error:', error.message)

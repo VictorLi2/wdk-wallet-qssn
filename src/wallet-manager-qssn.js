@@ -40,7 +40,7 @@ export default class WalletManagerQssn extends WalletManagerEvm {
    */
   constructor (ecdsaSeed, mldsaSeed, config) {
     super(ecdsaSeed, config)
-    
+
     // Convert mnemonic to seed if necessary
     if (typeof mldsaSeed === 'string') {
       this._mldsaSeed = mnemonicToSeedSync(mldsaSeed)

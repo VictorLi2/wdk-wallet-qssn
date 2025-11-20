@@ -40,7 +40,7 @@ export class MLDSAKeyDerivation {
     } else {
       throw new Error('Seed must be a Uint8Array or Buffer')
     }
-    
+
     // Derive HD key using BIP32
     const hdKey = HDKey.fromMasterSeed(seedBytes)
     const derivedKey = hdKey.derive(path)
