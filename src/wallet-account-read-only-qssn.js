@@ -18,7 +18,7 @@ import { WalletAccountReadOnly } from '@tetherto/wdk-wallet'
 
 import { WalletAccountReadOnlyEvm } from '@tetherto/wdk-wallet-evm'
 
-import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
+import { Contract, JsonRpcProvider, BrowserProvider } from 'ethers'
 
 /** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
 
@@ -34,24 +34,35 @@ import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
  * @property {number} chainId - The blockchain's id (e.g., 1 for ethereum).
  * @property {string | Eip1193Provider} provider - The url of the rpc provider, or an instance of a class that implements eip-1193.
  * @property {string} bundlerUrl - The url of the bundler service.
- * @property {string} paymasterUrl - The url of the paymaster service.
- * @property {string} paymasterAddress - The address of the paymaster smart contract.
  * @property {string} entryPointAddress - The address of the entry point smart contract.
- * @property {string} safeModulesVersion - The safe modules version.
- * @property {Object} paymasterToken - The paymaster token configuration.
- * @property {string} paymasterToken.address - The address of the paymaster token.
+ * @property {string} factoryAddress - The address of the QssnWalletFactory contract.
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
+ * @property {number} [mldsaSecurityLevel] - ML-DSA security level (44, 65, or 87). Default: 65.
  */
+
+// ABIs for contract interactions
+const FACTORY_ABI = [
+  'function getWalletAddress(bytes calldata mldsaPublicKey, address ecdsaOwner) view returns (address)',
+  'function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)'
+]
+
+const WALLET_ABI = [
+  'function execute(address target, uint256 value, bytes calldata data) external'
+]
+
+const ENTRYPOINT_ABI = [
+  'function getNonce(address sender, uint192 key) view returns (uint256)'
+]
 
 export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
   /**
    * Creates a new read-only quantum-safe wallet account with ERC-4337 account abstraction.
    *
-   * @param {string} address - The evm account's address.
+   * @param {string} ecdsaOwner - The ECDSA owner address.
+   * @param {Uint8Array} mldsaPublicKey - The ML-DSA public key.
    * @param {Omit<QssnWalletConfig, 'transferMaxFee'>} config - The configuration object.
-   * @param {string} saltNonce - Salt nonce for Safe address derivation (keccak256 of ML-DSA public key).
    */
-  constructor (address, config, saltNonce) {
+  constructor (ecdsaOwner, mldsaPublicKey, config) {
     super(undefined)
 
     /**
@@ -63,20 +74,12 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     this._config = config
 
     /**
-     * The safe's implementation of the erc-4337 standard.
+     * The provider instance.
      *
      * @protected
-     * @type {Safe4337Pack | undefined}
+     * @type {JsonRpcProvider | BrowserProvider | undefined}
      */
-    this._safe4337Pack = undefined
-
-    /**
-     * The safe's fee estimator.
-     *
-     * @protected
-     * @type {GenericFeeEstimator | undefined}
-     */
-    this._feeEstimator = undefined
+    this._provider = undefined
 
     /**
      * The chain id.
@@ -86,28 +89,42 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
      */
     this._chainId = undefined
 
-    /** @private */
-    this._ownerAccountAddress = address
+    /**
+     * The cached wallet address.
+     *
+     * @protected
+     * @type {string | undefined}
+     */
+    this._walletAddress = undefined
 
     /** @private */
-    this._saltNonce = saltNonce
+    this._ecdsaOwner = ecdsaOwner
 
-    if (!this._saltNonce) {
-      throw new Error('saltNonce is required for dual-key Safe address binding')
+    /** @private */
+    this._mldsaPublicKey = mldsaPublicKey
+
+    if (!config.factoryAddress) {
+      throw new Error('factoryAddress is required in config')
     }
   }
 
   /**
-   * Returns the account's address.
+   * Returns the account's address (computed from factory).
    *
    * @returns {Promise<string>} The account's address.
    */
   async getAddress () {
-    const safe4337pack = await this._getSafe4337Pack()
+    if (this._walletAddress) {
+      return this._walletAddress
+    }
 
-    const address = await safe4337pack.protocolKit.getAddress()
+    const provider = await this._getProvider()
+    const factory = new Contract(this._config.factoryAddress, FACTORY_ABI, provider)
+    
+    const mldsaPublicKeyHex = '0x' + Buffer.from(this._mldsaPublicKey).toString('hex')
+    this._walletAddress = await factory.getWalletAddress(mldsaPublicKeyHex, this._ecdsaOwner)
 
-    return address
+    return this._walletAddress
   }
 
   /**
@@ -135,38 +152,38 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 
   /**
    * Returns the account's balance for the paymaster token provided in the wallet account configuration.
+   * Note: QSSN wallets don't use paymasters - wallets pay their own gas.
    *
    * @returns {Promise<bigint>} The paymaster token balance (in base unit).
    */
   async getPaymasterTokenBalance () {
-    const { paymasterToken } = this._config
-
-    return await this.getTokenBalance(paymasterToken.address)
+    throw new Error('QSSN wallets do not use paymasters. Wallets pay their own gas fees.')
   }
 
   /**
    * Quotes the costs of a send transaction operation.
+   * Note: Gas estimation is simplified for UserWallet - actual costs determined by bundler.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
-   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+   * @param {Object} [config] - Optional config (unused for QSSN wallets).
    * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
    */
   async quoteSendTransaction (tx, config) {
-    const { paymasterToken } = config ?? this._config
+    // Simplified gas estimation - bundler will determine actual costs
+    const provider = await this._getProvider()
+    const feeData = await provider.getFeeData()
+    
+    const estimatedGas = 200000n // Conservative estimate for UserWallet transactions
+    const fee = estimatedGas * (feeData.maxFeePerGas || 1000000000n)
 
-    const fee = await this._getUserOperationGasCost([tx].flat(), {
-      paymasterTokenAddress: paymasterToken.address,
-      amountToApprove: BigInt(Number.MAX_SAFE_INTEGER)
-    })
-
-    return { fee: BigInt(fee) }
+    return { fee }
   }
 
   /**
    * Quotes the costs of a transfer operation.
    *
    * @param {TransferOptions} options - The transfer's options.
-   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+   * @param {Object} [config] - Optional config (unused for QSSN wallets).
    * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
    */
   async quoteTransfer (options, config) {
@@ -184,17 +201,29 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
    * @returns {Promise<EvmTransactionReceipt | null>} – The receipt, or null if the transaction has not been included in a block yet.
    */
   async getTransactionReceipt (hash) {
-    const safe4337Pack = await this._getSafe4337Pack()
+    // Query bundler for UserOp receipt
+    try {
+      const response = await fetch(this._config.bundlerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_getUserOperationReceipt',
+          params: [hash]
+        })
+      })
 
-    const evmReadOnlyAccount = await this._getEvmReadOnlyAccount()
+      const result = await response.json()
+      
+      if (result.result && result.result.receipt) {
+        return result.result.receipt
+      }
 
-    const userOp = await safe4337Pack.getUserOperationByHash(hash)
-
-    if (!userOp || !userOp.transactionHash) {
+      return null
+    } catch (error) {
       return null
     }
-
-    return await evmReadOnlyAccount.getTransactionReceipt(userOp.transactionHash)
   }
 
   /**
@@ -210,35 +239,21 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
   }
 
   /**
-   * Returns the safe's erc-4337 pack of the account.
+   * Returns the provider instance.
    *
    * @protected
-   * @returns {Promise<Safe4337Pack>} The safe's erc-4337 pack.
+   * @returns {Promise<JsonRpcProvider | BrowserProvider>} The provider.
    */
-  async _getSafe4337Pack () {
-    if (!this._safe4337Pack) {
-      this._safe4337Pack = await Safe4337Pack.init({
-        provider: this._config.provider,
-        bundlerUrl: this._config.bundlerUrl,
-        safeModulesVersion: this._config.safeModulesVersion,
-        options: {
-          owners: [this._ownerAccountAddress],
-          threshold: 1,
-          saltNonce: this._saltNonce
-        },
-        paymasterOptions: {
-          paymasterUrl: this._config.paymasterUrl,
-          paymasterAddress: this._config.paymasterAddress,
-          paymasterTokenAddress: this._config.paymasterToken.address,
-          skipApproveTransaction: true
-        },
-        customContracts: {
-          entryPointAddress: this._config.entryPointAddress
-        }
-      })
+  async _getProvider () {
+    if (!this._provider) {
+      const { provider } = this._config
+      
+      this._provider = typeof provider === 'string'
+        ? new JsonRpcProvider(provider)
+        : new BrowserProvider(provider)
     }
 
-    return this._safe4337Pack
+    return this._provider
   }
 
   /**
@@ -249,10 +264,8 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
    */
   async _getChainId () {
     if (!this._chainId) {
-      const evmReadOnlyAccount = await this._getEvmReadOnlyAccount()
-
-      const { chainId } = await evmReadOnlyAccount._provider.getNetwork()
-
+      const provider = await this._getProvider()
+      const { chainId } = await provider.getNetwork()
       this._chainId = chainId
     }
 
@@ -266,59 +279,5 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     const evmReadOnlyAccount = new WalletAccountReadOnlyEvm(address, this._config)
 
     return evmReadOnlyAccount
-  }
-
-  /** @private */
-  async _getFeeEstimator () {
-    if (!this._feeEstimator) {
-      const chainId = await this._getChainId()
-
-      this._feeEstimator = new GenericFeeEstimator(
-        this._config.provider,
-        `0x${chainId.toString(16)}`
-      )
-    }
-
-    return this._feeEstimator
-  }
-
-  /** @private */
-  async _getUserOperationGasCost (txs, options) {
-    const safe4337Pack = await this._getSafe4337Pack()
-
-    const address = await this.getAddress()
-
-    try {
-      const safeOperation = await safe4337Pack.createTransaction({
-        transactions: txs.map(tx => ({ from: address, ...tx })),
-        options: {
-          feeEstimator: await this._getFeeEstimator(),
-          ...options
-        }
-      })
-
-      const {
-        callGasLimit,
-        verificationGasLimit,
-        preVerificationGas,
-        paymasterVerificationGasLimit,
-        paymasterPostOpGasLimit,
-        maxFeePerGas
-      } = safeOperation.userOperation
-
-      const gasCost = Number((callGasLimit + verificationGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas)
-
-      const exchangeRate = await safe4337Pack.getTokenExchangeRate(options.paymasterTokenAddress)
-
-      const gasCostInPaymasterToken = Math.ceil(gasCost * exchangeRate / 10 ** 18)
-
-      return gasCostInPaymasterToken
-    } catch (error) {
-      if (error.message.includes('AA50')) {
-        throw new Error('Simulation failed: not enough funds in the safe account to repay the paymaster.')
-      }
-
-      throw error
-    }
   }
 }

@@ -14,11 +14,9 @@
 
 'use strict'
 
-import { Contract, keccak256 } from 'ethers'
+import { Contract, keccak256, AbiCoder, ethers, JsonRpcProvider, BrowserProvider } from 'ethers'
 
 import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
-
-import { Safe4337Pack } from '@wdk-safe-global/relay-kit'
 
 import WalletAccountReadOnlyQssn from './wallet-account-read-only-qssn.js'
 import { WalletAccountMldsa } from './wallet-account-mldsa.js'
@@ -59,11 +57,8 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     const securityLevel = config.mldsaSecurityLevel || 65
     const mldsaAccount = new WalletAccountMldsa(mldsaSeed, path, { ...config, securityLevel })
 
-    // Compute salt from ML-DSA public key for deterministic Safe address
-    const saltNonce = keccak256(mldsaAccount.getPublicKey())
-
-    // Initialize parent with ECDSA address and custom salt
-    super(ownerAccount._address, config, saltNonce)
+    // Initialize parent with ECDSA owner and ML-DSA public key
+    super(ownerAccount._address, mldsaAccount.getPublicKey(), config)
 
     /**
      * The quantum-safe wallet account configuration.
@@ -78,9 +73,6 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
     /** @private */
     this._mldsaAccount = mldsaAccount
-
-    /** @private */
-    this._saltNonce = saltNonce
   }
 
   /**
@@ -179,18 +171,13 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * Sends a transaction.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx -  The transaction, or an array of multiple transactions to send in batch.
-   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+   * @param {Object} [config] - Optional config (unused for QSSN wallets).
    * @returns {Promise<TransactionResult>} The transaction's result.
    */
   async sendTransaction (tx, config) {
-    const { paymasterToken } = config ?? this._config
-
     const { fee } = await this.quoteSendTransaction(tx, config)
 
-    const hash = await this._sendUserOperation([tx].flat(), {
-      paymasterTokenAddress: paymasterToken.address,
-      amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
-    })
+    const hash = await this._sendUserOperation([tx].flat())
 
     return { hash, fee }
   }
@@ -199,11 +186,11 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * Transfers a token to another address.
    *
    * @param {TransferOptions} options - The transfer's options.
-   * @param {Pick<QssnWalletConfig, 'paymasterToken' | 'transferMaxFee'>} [config] - If set, overrides the 'paymasterToken' and 'transferMaxFee' options defined in the wallet account configuration.
+   * @param {Pick<QssnWalletConfig, 'transferMaxFee'>} [config] - If set, overrides the 'transferMaxFee' option defined in the wallet account configuration.
    * @returns {Promise<TransferResult>} The transfer's result.
    */
   async transfer (options, config) {
-    const { paymasterToken, transferMaxFee } = config ?? this._config
+    const { transferMaxFee } = config ?? this._config
 
     const tx = await WalletAccountEvm._getTransferTransaction(options)
 
@@ -213,10 +200,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
       throw new Error('Exceeded maximum fee cost for transfer operation.')
     }
 
-    const hash = await this._sendUserOperation([tx], {
-      paymasterTokenAddress: paymasterToken.address,
-      amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
-    })
+    const hash = await this._sendUserOperation([tx])
 
     return { hash, fee }
   }
@@ -227,9 +211,10 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * @returns {Promise<WalletAccountReadOnlyQssn>} The read-only account.
    */
   async toReadOnlyAccount () {
-    const address = await this._ownerAccount.getAddress()
+    const ecdsaOwner = await this._ownerAccount.getAddress()
+    const mldsaPublicKey = this._mldsaAccount.getPublicKey()
 
-    const readOnlyAccount = new WalletAccountReadOnlyQssn(address, this._config, this._saltNonce)
+    const readOnlyAccount = new WalletAccountReadOnlyQssn(ecdsaOwner, mldsaPublicKey, this._config)
 
     return readOnlyAccount
   }
@@ -262,12 +247,12 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
   }
 
   /**
-   * Returns the salt nonce used for Safe address derivation.
+   * Returns the salt nonce used for wallet address derivation.
    *
    * @returns {string} The salt nonce (keccak256 of ML-DSA public key).
    */
   getSaltNonce () {
-    return this._saltNonce
+    return keccak256(this._mldsaAccount.getPublicKey())
   }
 
   /**
@@ -284,39 +269,35 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * This is useful for debugging and verifying what data is being sent to the bundler/validator.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx - The transaction(s) to create a UserOperation for.
-   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - Optional config override.
+   * @param {Object} [config] - Optional config (unused for QSSN wallets).
    * @returns {Promise<Object>} The UserOperation with ML-DSA data.
    */
   async getUserOperationWithMLDSA (tx, config) {
-    const { paymasterToken } = config ?? this._config
-    const safe4337Pack = await this._getSafe4337Pack()
-    const address = await this.getAddress()
-    const twoMinutesFromNow = Math.floor(Date.now() / 1_000) + 2 * 60
-
-    const safeOperation = await safe4337Pack.createTransaction({
-      transactions: [tx].flat().map(t => ({ from: address, ...t })),
-      options: {
-        validUntil: twoMinutesFromNow,
-        feeEstimator: await this._getFeeEstimator(),
-        paymasterTokenAddress: paymasterToken.address,
-        amountToApprove: BigInt(Number.MAX_SAFE_INTEGER)
-      }
-    })
-
-    // Get the UserOperation hash
-    const userOpHash = await safe4337Pack.getSignatureWithModuleAddress(safeOperation, this._config.chainId)
+    const walletAddress = await this.getAddress()
+    const ecdsaOwner = this._ownerAccount._address
+    const mldsaPublicKey = this._mldsaAccount.getPublicKeyHex()
+    
+    // Build UserOperation (without signatures initially)
+    const userOp = await this._buildUserOp([tx].flat(), '0x')
+    
+    // Get UserOp hash for signing
+    const userOpHash = this._getUserOpHash(userOp)
 
     // Sign with ML-DSA
-    const mldsaSignature = await this._mldsaAccount.sign(userOpHash)
-    const mldsaPublicKey = this._mldsaAccount.getPublicKeyHex()
+    const mldsaSignature = await this._mldsaAccount.sign(ethers.getBytes(userOpHash))
+    const mldsaSignatureHex = '0x' + Buffer.from(mldsaSignature).toString('hex')
+    
+    // Sign with ECDSA
+    const ecdsaSignature = await this._ownerAccount.sign(ethers.getBytes(userOpHash))
 
     return {
-      userOperation: safeOperation.data,
-      mldsaSignature,
+      userOperation: userOp,
+      mldsaSignature: mldsaSignatureHex,
       mldsaPublicKey,
+      ecdsaSignature,
       userOpHash,
-      safeAddress: address,
-      ecdsaOwner: await this._ecdsaAccount.getAddress()
+      walletAddress,
+      ecdsaOwner
     }
   }
 
@@ -349,86 +330,180 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     this._mldsaAccount.dispose()
   }
 
-  async _getSafe4337Pack () {
-    if (!this._safe4337Pack) {
-      const owner = await this._ownerAccount.getAddress()
-
-      this._safe4337Pack = await Safe4337Pack.init({
-        provider: this._config.provider,
-        signer: this._ownerAccount._account,
-        bundlerUrl: this._config.bundlerUrl,
-        safeModulesVersion: this._config.safeModulesVersion,
-        options: {
-          owners: [owner],
-          threshold: 1,
-          saltNonce: this._saltNonce
-        },
-        paymasterOptions: {
-          paymasterUrl: this._config.paymasterUrl,
-          paymasterAddress: this._config.paymasterAddress,
-          paymasterTokenAddress: this._config.paymasterToken.address,
-          skipApproveTransaction: true
-        },
-        customContracts: {
-          entryPointAddress: this._config.entryPointAddress
-        }
-      })
+  /** @private */
+  async _getProvider () {
+    if (!this._provider) {
+      const { provider } = this._config
+      
+      this._provider = typeof provider === 'string'
+        ? new JsonRpcProvider(provider)
+        : new BrowserProvider(provider)
     }
 
-    return this._safe4337Pack
+    return this._provider
   }
 
   /** @private */
-  async _sendUserOperation (txs, options) {
-    const safe4337Pack = await this._getSafe4337Pack()
-
-    const address = await this.getAddress()
-
-    const twoMinutesFromNow = Math.floor(Date.now() / 1_000) + 2 * 60
-
-    try {
-      const safeOperation = await safe4337Pack.createTransaction({
-        transactions: txs.map(tx => ({ from: address, ...tx })),
-        options: {
-          validUntil: twoMinutesFromNow,
-          feeEstimator: await this._getFeeEstimator(),
-          ...options
-        }
-      })
-
-      // Get the UserOperation hash that needs to be signed
-      const userOpHash = await safe4337Pack.getSignatureWithModuleAddress(safeOperation, this._config.chainId)
-
-      // Sign with ML-DSA
-      const mldsaSignature = await this._mldsaAccount.sign(userOpHash)
-      const mldsaPublicKey = this._mldsaAccount.getPublicKeyHex()
-
-      // Sign with ECDSA
-      const signedSafeOperation = await safe4337Pack.signSafeOperation(safeOperation)
-
-      // Pack QSSN signature: combine ECDSA + ML-DSA signatures into signature field
-      // Format: ABI-encoded [ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner]
-      // Note: saltNonce is derived as keccak256(mldsaPublicKey), no need to include it
-      const { AbiCoder } = await import('ethers')
-      const abiCoder = new AbiCoder()
-
-      const ecdsaOwner = await this._ecdsaAccount.getAddress()
-      const ecdsaSignature = signedSafeOperation.data.signature
-
-      signedSafeOperation.data.signature = abiCoder.encode(
-        ['bytes', 'bytes', 'bytes', 'address'],
-        [ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner]
-      )
-
-      return await safe4337Pack.executeTransaction({
-        executable: signedSafeOperation
-      })
-    } catch (err) {
-      if (err.message.includes('AA50')) {
-        throw new Error('Not enough funds on the safe account to repay the paymaster.')
-      }
-
-      throw err
+  async _buildUserOp (txs, signature) {
+    const walletAddress = await this.getAddress()
+    const provider = await this._getProvider()
+    const entryPoint = new Contract(this._config.entryPointAddress, ['function getNonce(address sender, uint192 key) view returns (uint256)'], provider)
+    
+    // Get nonce
+    const nonce = await entryPoint.getNonce(walletAddress, 0)
+    
+    // Check if wallet is deployed
+    const code = await provider.getCode(walletAddress)
+    const isDeployed = code !== '0x'
+    
+    // Create factory and factoryData if not deployed (v0.7 format)
+    let factory = null
+    let factoryData = null
+    if (!isDeployed) {
+      factory = this._config.factoryAddress
+      const factoryInterface = new ethers.Interface(['function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)'])
+      const mldsaPublicKeyHex = '0x' + Buffer.from(this._mldsaAccount.getPublicKey()).toString('hex')
+      factoryData = factoryInterface.encodeFunctionData('createWallet', [mldsaPublicKeyHex, this._ownerAccount._address])
     }
+    
+    // Encode callData for execute function
+    let callData
+    if (txs.length === 1) {
+      const wallet = new ethers.Interface(['function execute(address target, uint256 value, bytes calldata data) external'])
+      callData = wallet.encodeFunctionData('execute', [txs[0].to, txs[0].value || 0, txs[0].data || '0x'])
+    } else {
+      // For multiple transactions, use executeBatch (if your UserWallet supports it)
+      throw new Error('Batch transactions not yet implemented for UserWallet')
+    }
+    
+    // Get gas estimates
+    const feeData = await provider.getFeeData()
+    
+    // Calculate preVerificationGas based on UserOp size
+    // Use a high value since bundler's calculation returns NaN with large factoryData
+    const preVerificationGas = isDeployed ? 100000 : 500000
+    
+    // Build UserOperation in v0.7 format
+    const userOp = {
+      sender: walletAddress,
+      nonce: ethers.toBeHex(nonce),
+      callData,
+      callGasLimit: ethers.toBeHex(BigInt(196608)),
+      verificationGasLimit: ethers.toBeHex(BigInt(isDeployed ? 196608 : 2097152)),
+      preVerificationGas: ethers.toBeHex(BigInt(preVerificationGas)),
+      maxFeePerGas: ethers.toBeHex(feeData.maxFeePerGas || 1000000000n),
+      maxPriorityFeePerGas: ethers.toBeHex(feeData.maxPriorityFeePerGas || 1000000000n),
+      signature
+    }
+    
+    // Add factory fields if deploying (v0.7)
+    if (factory) {
+      userOp.factory = factory
+      userOp.factoryData = factoryData
+    }
+    
+    // No paymaster - don't add paymaster fields at all
+    
+    return userOp
+  }
+
+  /** @private */
+  _getUserOpHash (userOp) {
+    // Pack initCode (factory + factoryData) for v0.7
+    const initCode = userOp.factory 
+      ? ethers.concat([userOp.factory, userOp.factoryData || '0x'])
+      : '0x'
+    
+    // Pack paymasterAndData for v0.7
+    const paymasterAndData = userOp.paymaster
+      ? ethers.concat([
+          userOp.paymaster,
+          ethers.zeroPadValue(ethers.toBeArray(userOp.paymasterVerificationGasLimit || 0), 16),
+          ethers.zeroPadValue(ethers.toBeArray(userOp.paymasterPostOpGasLimit || 0), 16),
+          userOp.paymasterData || '0x'
+        ])
+      : '0x'
+    
+    // Pack gas limits for v0.7
+    const accountGasLimits = ethers.concat([
+      ethers.zeroPadValue(ethers.toBeArray(userOp.verificationGasLimit), 16),
+      ethers.zeroPadValue(ethers.toBeArray(userOp.callGasLimit), 16)
+    ])
+    
+    const gasFees = ethers.concat([
+      ethers.zeroPadValue(ethers.toBeArray(userOp.maxPriorityFeePerGas), 16),
+      ethers.zeroPadValue(ethers.toBeArray(userOp.maxFeePerGas), 16)
+    ])
+    
+    // Hash the packed UserOp according to ERC-4337 v0.7
+    const userOpHash = ethers.keccak256(
+      AbiCoder.defaultAbiCoder().encode(
+        ['address', 'uint256', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'bytes32', 'bytes32'],
+        [
+          userOp.sender,
+          userOp.nonce,
+          ethers.keccak256(initCode),
+          ethers.keccak256(userOp.callData),
+          accountGasLimits,
+          userOp.preVerificationGas,
+          gasFees,
+          ethers.keccak256(paymasterAndData)
+        ]
+      )
+    )
+    
+    // Add EntryPoint and chainId according to ERC-4337
+    return ethers.keccak256(
+      AbiCoder.defaultAbiCoder().encode(
+        ['bytes32', 'address', 'uint256'],
+        [userOpHash, this._config.entryPointAddress, this._config.chainId]
+      )
+    )
+  }
+
+  /** @private */
+  async _sendUserOperation (txs) {
+    // Build UserOp without signature
+    const userOp = await this._buildUserOp(txs, '0x')
+    
+    // Get UserOp hash for signing
+    const userOpHash = this._getUserOpHash(userOp)
+    
+    // Sign with ECDSA
+    const ecdsaSignature = await this._ownerAccount.sign(ethers.getBytes(userOpHash))
+    
+    // Sign with ML-DSA (returns hex string "0x...")
+    const mldsaSignature = await this._mldsaAccount.sign(ethers.getBytes(userOpHash))
+    const mldsaPublicKeyHex = this._mldsaAccount.getPublicKeyHex()  // Returns "0x..." hex string
+    
+    // Pack QSSN signature: abi.encode(ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner)
+    const abiCoder = new AbiCoder()
+    userOp.signature = abiCoder.encode(
+      ['bytes', 'bytes', 'bytes', 'address'],
+      [ecdsaSignature, mldsaSignature, mldsaPublicKeyHex, this._ownerAccount._address]
+    )
+    
+    // Debug: log the UserOp being sent
+    console.log('Sending UserOp:', JSON.stringify(userOp, null, 2))
+    
+    // Submit to bundler
+    const response = await fetch(this._config.bundlerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_sendUserOperation',
+        params: [userOp, this._config.entryPointAddress]
+      })
+    })
+    
+    const result = await response.json()
+    
+    if (result.error) {
+      throw new Error(`Bundler error: ${result.error.message}`)
+    }
+    
+    return result.result // UserOp hash
   }
 }
