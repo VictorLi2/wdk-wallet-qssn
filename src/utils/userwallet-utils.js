@@ -1,5 +1,4 @@
-// Temporary file with UserWallet-specific helper functions
-// These will replace the Safe4337Pack methods
+// UserWallet-specific helper functions for ERC-4337 operations
 
 import { ethers } from 'ethers'
 

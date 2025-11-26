@@ -58,7 +58,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     const mldsaAccount = new WalletAccountMldsa(mldsaSeed, path, { ...config, securityLevel })
 
     // Initialize parent with ECDSA owner and ML-DSA public key
-    super(ownerAccount._address, mldsaAccount.getPublicKey(), config)
+    super(ownerAccount._address, mldsaAccount.publicKey, config)
 
     /**
      * The quantum-safe wallet account configuration.
@@ -212,7 +212,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    */
   async toReadOnlyAccount () {
     const ecdsaOwner = await this._ownerAccount.getAddress()
-    const mldsaPublicKey = this._mldsaAccount.getPublicKey()
+    const mldsaPublicKey = this._mldsaAccount.publicKey
 
     const readOnlyAccount = new WalletAccountReadOnlyQssn(ecdsaOwner, mldsaPublicKey, this._config)
 
@@ -225,7 +225,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * @returns {Uint8Array} The ML-DSA public key.
    */
   getMLDSAPublicKey () {
-    return this._mldsaAccount.getPublicKey()
+    return this._mldsaAccount.publicKey
   }
 
   /**
@@ -234,7 +234,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * @returns {string} The ML-DSA public key (0x...).
    */
   getMLDSAPublicKeyHex () {
-    return this._mldsaAccount.getPublicKeyHex()
+    return this._mldsaAccount.publicKeyHex
   }
 
   /**
@@ -252,74 +252,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * @returns {string} The salt nonce (keccak256 of ML-DSA public key).
    */
   getSaltNonce () {
-    return keccak256(this._mldsaAccount.getPublicKey())
-  }
-
-  /**
-   * Returns the underlying ML-DSA account.
-   *
-   * @returns {WalletAccountMldsa} The ML-DSA account.
-   */
-  getMLDSAAccount () {
-    return this._mldsaAccount
-  }
-
-  /**
-   * Gets the UserOperation data including ML-DSA signature and public key.
-   * This is useful for debugging and verifying what data is being sent to the bundler/validator.
-   *
-   * @param {EvmTransaction | EvmTransaction[]} tx - The transaction(s) to create a UserOperation for.
-   * @param {Object} [config] - Optional config (unused for QSSN wallets).
-   * @returns {Promise<Object>} The UserOperation with ML-DSA data.
-   */
-  async getUserOperationWithMLDSA (tx, config) {
-    const walletAddress = await this.getAddress()
-    const ecdsaOwner = this._ownerAccount._address
-    const mldsaPublicKey = this._mldsaAccount.getPublicKeyHex()
-    
-    // Build UserOperation (without signatures initially)
-    const userOp = await this._buildUserOp([tx].flat(), '0x')
-    
-    // Get UserOp hash for signing
-    const userOpHash = this._getUserOpHash(userOp)
-
-    // Sign with ML-DSA
-    const mldsaSignature = await this._mldsaAccount.sign(ethers.getBytes(userOpHash))
-    const mldsaSignatureHex = '0x' + Buffer.from(mldsaSignature).toString('hex')
-    
-    // Sign with ECDSA
-    const ecdsaSignature = await this._ownerAccount.sign(ethers.getBytes(userOpHash))
-
-    return {
-      userOperation: userOp,
-      mldsaSignature: mldsaSignatureHex,
-      mldsaPublicKey,
-      ecdsaSignature,
-      userOpHash,
-      walletAddress,
-      ecdsaOwner
-    }
-  }
-
-  /**
-   * Signs a message with ML-DSA (for off-chain verification).
-   *
-   * @param {string} message - The message to sign.
-   * @returns {Promise<string>} The ML-DSA signature.
-   */
-  async signWithMLDSA (message) {
-    return await this._mldsaAccount.sign(message)
-  }
-
-  /**
-   * Verifies an ML-DSA signature.
-   *
-   * @param {string} message - The original message.
-   * @param {string} signature - The ML-DSA signature.
-   * @returns {Promise<boolean>} True if valid.
-   */
-  async verifyMLDSA (message, signature) {
-    return await this._mldsaAccount.verify(message, signature)
+    return keccak256(this._mldsaAccount.publicKey)
   }
 
   /**
@@ -362,7 +295,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     if (!isDeployed) {
       factory = this._config.factoryAddress
       const factoryInterface = new ethers.Interface(['function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)'])
-      const mldsaPublicKeyHex = '0x' + Buffer.from(this._mldsaAccount.getPublicKey()).toString('hex')
+      const mldsaPublicKeyHex = this._mldsaAccount.publicKeyHex
       factoryData = factoryInterface.encodeFunctionData('createWallet', [mldsaPublicKeyHex, this._ownerAccount._address])
     }
     
@@ -472,15 +405,15 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     // Sign with ECDSA
     const ecdsaSignature = await this._ownerAccount.sign(ethers.getBytes(userOpHash))
     
-    // Sign with ML-DSA (returns hex string "0x...")
-    const mldsaSignature = await this._mldsaAccount.sign(ethers.getBytes(userOpHash))
-    const mldsaPublicKeyHex = this._mldsaAccount.getPublicKeyHex()  // Returns "0x..." hex string
+    // Sign with ML-DSA (returns hex string)
+    const mldsaSignatureHex = await this._mldsaAccount.sign(ethers.getBytes(userOpHash))
+    const mldsaPublicKeyHex = this._mldsaAccount.publicKeyHex
     
     // Pack QSSN signature: abi.encode(ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner)
     const abiCoder = new AbiCoder()
     userOp.signature = abiCoder.encode(
       ['bytes', 'bytes', 'bytes', 'address'],
-      [ecdsaSignature, mldsaSignature, mldsaPublicKeyHex, this._ownerAccount._address]
+      [ecdsaSignature, mldsaSignatureHex, mldsaPublicKeyHex, this._ownerAccount._address]
     )
     
     // Debug: log the UserOp being sent

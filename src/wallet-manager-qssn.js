@@ -14,39 +14,38 @@
 
 'use strict'
 
-import WalletManager from '@tetherto/wdk-wallet'
-
 import WalletManagerEvm from '@tetherto/wdk-wallet-evm'
 
 import { BrowserProvider, JsonRpcProvider } from 'ethers'
 
-import { mnemonicToSeedSync } from '@scure/bip39'
-
 import WalletAccountQssn from './wallet-account-qssn.js'
+
+import { createQssnConfig } from './utils/config-presets.js'
 
 /** @typedef {import('ethers').Provider} Provider */
 
 /** @typedef {import('@tetherto/wdk-wallet-evm').FeeRates} FeeRates */
 
-/** @typedef {import('./wallet-account-qssn.js').QssnWalletConfig} QssnWalletConfig */
+/** @typedef {import('./wallet-account-read-only-qssn.js').QssnUserConfig} QssnUserConfig */
+/** @typedef {import('./wallet-account-read-only-qssn.js').QssnWalletConfig} QssnWalletConfig */
 
 export default class WalletManagerQssn extends WalletManagerEvm {
   /**
    * Creates a new quantum-safe wallet manager with dual-key (ECDSA + ML-DSA) support for ERC-4337.
+   * bundlerUrl, entryPointAddress, and factoryAddress are automatically set based on chainId.
    *
    * @param {string | Uint8Array} ecdsaSeed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase or seed bytes for ECDSA keys.
    * @param {string | Uint8Array} mldsaSeed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase or seed bytes for ML-DSA keys.
-   * @param {QssnWalletConfig} config - The configuration object.
+   * @param {QssnUserConfig} userConfig - The configuration object (chainId and provider required, presets applied automatically).
    */
-  constructor (ecdsaSeed, mldsaSeed, config) {
+  constructor (ecdsaSeed, mldsaSeed, userConfig) {
+    // Apply preset configuration based on chainId
+    const config = createQssnConfig(userConfig)
+    
     super(ecdsaSeed, config)
 
-    // Convert mnemonic to seed if necessary
-    if (typeof mldsaSeed === 'string') {
-      this._mldsaSeed = mnemonicToSeedSync(mldsaSeed)
-    } else {
-      this._mldsaSeed = mldsaSeed
-    }
+    // Store ML-DSA seed (can be mnemonic string or seed bytes)
+    this._mldsaSeed = mldsaSeed
 
     /**
      * The quantum-safe wallet configuration.

@@ -14,8 +14,9 @@
 
 'use strict'
 
-import { MLDSAKeyDerivation } from './crypto/mldsa-key-derivation.js'
-import { MLDSASigner } from './crypto/mldsa-signer.js'
+import { mnemonicToSeedSync } from '@scure/bip39'
+import { MLDSAKeyDerivation } from './utils/mldsa/mldsa-key-derivation.js'
+import { MLDSASigner } from './utils/mldsa/mldsa-signer.js'
 
 /**
  * ML-DSA wallet account for post-quantum signatures
@@ -24,7 +25,7 @@ export class WalletAccountMldsa {
   /**
    * Creates a new ML-DSA wallet account.
    *
-   * @param {Uint8Array} seed - The wallet's seed bytes
+   * @param {string | Uint8Array} seed - The wallet's BIP-39 mnemonic phrase or seed bytes
    * @param {string} path - The BIP-44 derivation path (e.g. "0'/0/0")
    * @param {Object} config - Configuration object
    * @param {number} [config.securityLevel=65] - ML-DSA security level (44, 65, or 87)
@@ -32,6 +33,9 @@ export class WalletAccountMldsa {
   constructor (seed, path, config = {}) {
     this._path = path
     this._config = config
+
+    // Convert mnemonic to seed if necessary
+    const seedBytes = typeof seed === 'string' ? mnemonicToSeedSync(seed) : seed
 
     // Get security level from config (default to ML-DSA-65)
     this._securityLevel = config.securityLevel || 65
@@ -44,10 +48,7 @@ export class WalletAccountMldsa {
     const fullPath = MLDSAKeyDerivation.getDerivationPath(path, this._securityLevel)
 
     // Derive ML-DSA key pair using the crypto module
-    this._keyPair = MLDSAKeyDerivation.deriveKeyPair(seed, fullPath, this._securityLevel)
-
-    // Derive Ethereum-compatible address from public key
-    this._address = MLDSAKeyDerivation.deriveAddress(this._keyPair.publicKey)
+    this._keyPair = MLDSAKeyDerivation.deriveKeyPair(seedBytes, fullPath, this._securityLevel)
   }
 
   /**
@@ -59,28 +60,20 @@ export class WalletAccountMldsa {
   }
 
   /**
-   * Returns the ML-DSA public key.
-   * @returns {Uint8Array} The ML-DSA public key
+   * The ML-DSA public key.
+   * @type {Uint8Array}
    */
-  getPublicKey () {
+  get publicKey () {
     return this._keyPair.publicKey
   }
 
   /**
-   * Returns the ML-DSA public key as hex string.
-   * @returns {string} The ML-DSA public key (0x...)
+   * The ML-DSA public key as hex string.
+   * @type {string}
    */
-  getPublicKeyHex () {
+  get publicKeyHex () {
     const pubKey = this._keyPair.publicKey
     return '0x' + Buffer.from(pubKey).toString('hex')
-  }
-
-  /**
-   * Returns the Ethereum address derived from ML-DSA public key.
-   * @returns {string} The Ethereum address (0x...)
-   */
-  getAddress () {
-    return this._address
   }
 
   /**
@@ -115,8 +108,6 @@ export class WalletAccountMldsa {
       }
       this._keyPair = null
     }
-
-    this._address = null
   }
 }
 

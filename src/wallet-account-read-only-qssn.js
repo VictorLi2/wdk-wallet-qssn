@@ -31,11 +31,20 @@ import { Contract, JsonRpcProvider, BrowserProvider } from 'ethers'
 
 /**
  * @typedef {Object} QssnWalletConfig
- * @property {number} chainId - The blockchain's id (e.g., 1 for ethereum).
+ * @property {number} chainId - The blockchain's id (e.g., 31337 for local Anvil).
  * @property {string | Eip1193Provider} provider - The url of the rpc provider, or an instance of a class that implements eip-1193.
- * @property {string} bundlerUrl - The url of the bundler service.
- * @property {string} entryPointAddress - The address of the entry point smart contract.
- * @property {string} factoryAddress - The address of the QssnWalletFactory contract.
+ * @property {string} bundlerUrl - The url of the bundler service (set automatically via preset).
+ * @property {string} entryPointAddress - The address of the entry point smart contract (set automatically via preset).
+ * @property {string} factoryAddress - The address of the QssnWalletFactory contract (set automatically via preset).
+ * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
+ * @property {number} [mldsaSecurityLevel] - ML-DSA security level (44, 65, or 87). Default: 65.
+ */
+
+/**
+ * @typedef {Object} QssnUserConfig
+ * User-provided configuration. bundlerUrl, entryPointAddress, and factoryAddress are set automatically based on chainId.
+ * @property {number} chainId - The blockchain's id (e.g., 31337 for local Anvil).
+ * @property {string | Eip1193Provider} provider - The url of the rpc provider, or an instance of a class that implements eip-1193.
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
  * @property {number} [mldsaSecurityLevel] - ML-DSA security level (44, 65, or 87). Default: 65.
  */
