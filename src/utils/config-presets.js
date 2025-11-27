@@ -60,7 +60,7 @@ export function getPresetConfig (chainId) {
 /**
  * Merges user config with preset configuration.
  * Required: chainId, provider
- * Optional: mldsaSecurityLevel, transferMaxFee
+ * Optional: mldsaSecurityLevel, transferMaxFee, paymasterUrl, paymasterAddress, paymasterToken
  * Preset values (bundlerUrl, entryPointAddress, factoryAddress) cannot be overridden.
  * 
  * @param {Object} userConfig - User-provided configuration
@@ -68,6 +68,10 @@ export function getPresetConfig (chainId) {
  * @param {string | Object} userConfig.provider - RPC provider URL or EIP-1193 provider
  * @param {number} [userConfig.mldsaSecurityLevel] - ML-DSA security level (44, 65, or 87)
  * @param {number | bigint} [userConfig.transferMaxFee] - Maximum fee for transfers
+ * @param {string} [userConfig.paymasterUrl] - The url of the paymaster service (optional, for future gas sponsorship)
+ * @param {string} [userConfig.paymasterAddress] - The address of the paymaster smart contract (optional, for future gas sponsorship)
+ * @param {Object} [userConfig.paymasterToken] - The paymaster token configuration (optional, for future gas sponsorship)
+ * @param {string} [userConfig.paymasterToken.address] - The address of the paymaster token
  * @returns {Object} Complete configuration with presets applied
  */
 export function createQssnConfig (userConfig) {
@@ -81,7 +85,26 @@ export function createQssnConfig (userConfig) {
   
   const preset = getPresetConfig(userConfig.chainId)
   
-  return {
+  // Validate paymaster configuration - all or none must be provided
+  const hasPaymasterUrl = !!userConfig.paymasterUrl
+  const hasPaymasterAddress = !!userConfig.paymasterAddress
+  const hasPaymasterToken = !!userConfig.paymasterToken
+
+  const paymasterFieldsProvided = [hasPaymasterUrl, hasPaymasterAddress, hasPaymasterToken].filter(Boolean).length
+
+  if (paymasterFieldsProvided > 0 && paymasterFieldsProvided < 3) {
+    const missing = []
+    if (!hasPaymasterUrl) missing.push('paymasterUrl')
+    if (!hasPaymasterAddress) missing.push('paymasterAddress')
+    if (!hasPaymasterToken) missing.push('paymasterToken')
+    
+    throw new Error(
+      `Incomplete paymaster configuration. To use a paymaster, you must provide all three fields: ` +
+      `paymasterUrl, paymasterAddress, and paymasterToken. Missing: ${missing.join(', ')}`
+    )
+  }
+
+  const config = {
     chainId: userConfig.chainId,
     provider: userConfig.provider,
     bundlerUrl: preset.bundlerUrl,
@@ -90,4 +113,13 @@ export function createQssnConfig (userConfig) {
     mldsaSecurityLevel: userConfig.mldsaSecurityLevel,
     transferMaxFee: userConfig.transferMaxFee
   }
+
+  // Add paymaster configuration if all fields are provided
+  if (paymasterFieldsProvided === 3) {
+    config.paymasterUrl = userConfig.paymasterUrl
+    config.paymasterAddress = userConfig.paymasterAddress
+    config.paymasterToken = userConfig.paymasterToken
+  }
+
+  return config
 }

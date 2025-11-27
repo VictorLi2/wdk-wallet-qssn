@@ -171,13 +171,21 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * Sends a transaction.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx -  The transaction, or an array of multiple transactions to send in batch.
-   * @param {Object} [config] - Optional config (unused for QSSN wallets).
+   * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
    * @returns {Promise<TransactionResult>} The transaction's result.
    */
   async sendTransaction (tx, config) {
+    const { paymasterToken } = config ?? this._config
+
     const { fee } = await this.quoteSendTransaction(tx, config)
 
-    const hash = await this._sendUserOperation([tx].flat())
+    // If paymaster is configured, pass token approval options
+    const options = paymasterToken ? {
+      paymasterTokenAddress: paymasterToken.address,
+      amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
+    } : undefined
+
+    const hash = await this._sendUserOperation([tx].flat(), options)
 
     return { hash, fee }
   }
@@ -186,11 +194,11 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
    * Transfers a token to another address.
    *
    * @param {TransferOptions} options - The transfer's options.
-   * @param {Pick<QssnWalletConfig, 'transferMaxFee'>} [config] - If set, overrides the 'transferMaxFee' option defined in the wallet account configuration.
+   * @param {Pick<QssnWalletConfig, 'paymasterToken' | 'transferMaxFee'>} [config] - If set, overrides the 'paymasterToken' and 'transferMaxFee' options defined in the wallet account configuration.
    * @returns {Promise<TransferResult>} The transfer's result.
    */
   async transfer (options, config) {
-    const { transferMaxFee } = config ?? this._config
+    const { paymasterToken, transferMaxFee } = config ?? this._config
 
     const tx = await WalletAccountEvm._getTransferTransaction(options)
 
@@ -200,7 +208,13 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
       throw new Error('Exceeded maximum fee cost for transfer operation.')
     }
 
-    const hash = await this._sendUserOperation([tx])
+    // If paymaster is configured, pass token approval options
+    const txOptions = paymasterToken ? {
+      paymasterTokenAddress: paymasterToken.address,
+      amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
+    } : undefined
+
+    const hash = await this._sendUserOperation([tx], txOptions)
 
     return { hash, fee }
   }
@@ -395,7 +409,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
   }
 
   /** @private */
-  async _sendUserOperation (txs) {
+  async _sendUserOperation (txs, options) {
     // Build UserOp without signature
     const userOp = await this._buildUserOp(txs, '0x')
     
@@ -419,6 +433,20 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     // Debug: log the UserOp being sent
     console.log('Sending UserOp:', JSON.stringify(userOp, null, 2))
     
+    // Prepare bundler params (include paymaster options if configured)
+    const bundlerParams = [userOp, this._config.entryPointAddress]
+    
+    // Add paymaster options if configured and provided (for future gas sponsorship)
+    // Options contain paymasterTokenAddress and amountToApprove from sendTransaction/transfer
+    if (options && this._config.paymasterUrl && this._config.paymasterAddress) {
+      bundlerParams.push({
+        paymasterUrl: this._config.paymasterUrl,
+        paymasterAddress: this._config.paymasterAddress,
+        paymasterTokenAddress: options.paymasterTokenAddress,
+        amountToApprove: options.amountToApprove
+      })
+    }
+    
     // Submit to bundler
     const response = await fetch(this._config.bundlerUrl, {
       method: 'POST',
@@ -427,7 +455,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         jsonrpc: '2.0',
         id: 1,
         method: 'eth_sendUserOperation',
-        params: [userOp, this._config.entryPointAddress]
+        params: bundlerParams
       })
     })
     

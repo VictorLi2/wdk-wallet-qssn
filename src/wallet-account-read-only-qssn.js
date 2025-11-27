@@ -36,6 +36,10 @@ import { Contract, JsonRpcProvider, BrowserProvider } from 'ethers'
  * @property {string} bundlerUrl - The url of the bundler service (set automatically via preset).
  * @property {string} entryPointAddress - The address of the entry point smart contract (set automatically via preset).
  * @property {string} factoryAddress - The address of the QssnWalletFactory contract (set automatically via preset).
+ * @property {string} [paymasterUrl] - The url of the paymaster service (optional, for future gas sponsorship).
+ * @property {string} [paymasterAddress] - The address of the paymaster smart contract (optional, for future gas sponsorship).
+ * @property {Object} [paymasterToken] - The paymaster token configuration (optional, for future gas sponsorship).
+ * @property {string} [paymasterToken.address] - The address of the paymaster token.
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
  * @property {number} [mldsaSecurityLevel] - ML-DSA security level (44, 65, or 87). Default: 65.
  */
@@ -47,6 +51,10 @@ import { Contract, JsonRpcProvider, BrowserProvider } from 'ethers'
  * @property {string | Eip1193Provider} provider - The url of the rpc provider, or an instance of a class that implements eip-1193.
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
  * @property {number} [mldsaSecurityLevel] - ML-DSA security level (44, 65, or 87). Default: 65.
+ * @property {string} [paymasterUrl] - The url of the paymaster service (optional, for future gas sponsorship).
+ * @property {string} [paymasterAddress] - The address of the paymaster smart contract (optional, for future gas sponsorship).
+ * @property {Object} [paymasterToken] - The paymaster token configuration (optional, for future gas sponsorship).
+ * @property {string} [paymasterToken.address] - The address of the paymaster token.
  */
 
 // ABIs for contract interactions
@@ -161,12 +169,18 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 
   /**
    * Returns the account's balance for the paymaster token provided in the wallet account configuration.
-   * Note: QSSN wallets don't use paymasters - wallets pay their own gas.
    *
    * @returns {Promise<bigint>} The paymaster token balance (in base unit).
+   * @throws {Error} If no paymaster token is configured.
    */
   async getPaymasterTokenBalance () {
-    throw new Error('QSSN wallets do not use paymasters. Wallets pay their own gas fees.')
+    const { paymasterToken } = this._config
+
+    if (!paymasterToken) {
+      throw new Error('No paymaster token configured. Please provide paymasterToken in the wallet configuration.')
+    }
+
+    return await this.getTokenBalance(paymasterToken.address)
   }
 
   /**
@@ -174,10 +188,12 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
    * Note: Gas estimation is simplified for UserWallet - actual costs determined by bundler.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
-   * @param {Object} [config] - Optional config (unused for QSSN wallets).
+   * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
    * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
    */
   async quoteSendTransaction (tx, config) {
+    const { paymasterToken } = config ?? this._config
+
     // Simplified gas estimation - bundler will determine actual costs
     const provider = await this._getProvider()
     const feeData = await provider.getFeeData()
@@ -185,6 +201,8 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     const estimatedGas = 200000n // Conservative estimate for UserWallet transactions
     const fee = estimatedGas * (feeData.maxFeePerGas || 1000000000n)
 
+    // If paymaster is configured, costs will be paid via paymaster token
+    // This is a simplified quote - actual paymaster logic would calculate token amounts
     return { fee }
   }
 
@@ -192,7 +210,7 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
    * Quotes the costs of a transfer operation.
    *
    * @param {TransferOptions} options - The transfer's options.
-   * @param {Object} [config] - Optional config (unused for QSSN wallets).
+   * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
    * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
    */
   async quoteTransfer (options, config) {

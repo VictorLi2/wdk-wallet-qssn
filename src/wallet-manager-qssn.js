@@ -14,6 +14,8 @@
 
 'use strict'
 
+import WalletManager from '@tetherto/wdk-wallet'
+
 import WalletManagerEvm from '@tetherto/wdk-wallet-evm'
 
 import { BrowserProvider, JsonRpcProvider } from 'ethers'
@@ -29,7 +31,7 @@ import { createQssnConfig } from './utils/config-presets.js'
 /** @typedef {import('./wallet-account-read-only-qssn.js').QssnUserConfig} QssnUserConfig */
 /** @typedef {import('./wallet-account-read-only-qssn.js').QssnWalletConfig} QssnWalletConfig */
 
-export default class WalletManagerQssn extends WalletManagerEvm {
+export default class WalletManagerQssn extends WalletManager {
   /**
    * Creates a new quantum-safe wallet manager with dual-key (ECDSA + ML-DSA) support for ERC-4337.
    * bundlerUrl, entryPointAddress, and factoryAddress are automatically set based on chainId.
@@ -45,7 +47,7 @@ export default class WalletManagerQssn extends WalletManagerEvm {
     super(ecdsaSeed, config)
 
     // Store ML-DSA seed (can be mnemonic string or seed bytes)
-    this._mldsaSeed = mldsaSeed
+    this.mldsaSeed = mldsaSeed
 
     /**
      * The quantum-safe wallet configuration.
@@ -94,7 +96,7 @@ export default class WalletManagerQssn extends WalletManagerEvm {
    */
   async getAccountByPath (path) {
     if (!this._accounts[path]) {
-      const account = new WalletAccountQssn(this.seed, this._mldsaSeed, path, this._config)
+      const account = new WalletAccountQssn(this.seed, this.mldsaSeed, path, this._config)
 
       this._accounts[path] = account
     }
