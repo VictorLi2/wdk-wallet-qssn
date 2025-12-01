@@ -319,16 +319,25 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
       const wallet = new ethers.Interface(['function execute(address target, uint256 value, bytes calldata data) external'])
       callData = wallet.encodeFunctionData('execute', [txs[0].to, txs[0].value || 0, txs[0].data || '0x'])
     } else {
-      // For multiple transactions, use executeBatch (if your UserWallet supports it)
-      throw new Error('Batch transactions not yet implemented for UserWallet')
+      // For multiple transactions, use executeBatch
+      const wallet = new ethers.Interface([
+        'struct Call { address target; uint256 value; bytes data; }',
+        'function executeBatch(Call[] calldata calls) external'
+      ])
+      const calls = txs.map(tx => ({
+        target: tx.to,
+        value: tx.value || 0,
+        data: tx.data || '0x'
+      }))
+      callData = wallet.encodeFunctionData('executeBatch', [calls])
     }
     
     // Get gas estimates
     const feeData = await provider.getFeeData()
     
     // Calculate preVerificationGas based on UserOp size
-    // Use a high value since bundler's calculation returns NaN with large factoryData
-    const preVerificationGas = isDeployed ? 100000 : 500000
+    // Bundler requires at least 139160 for deployed wallets
+    const preVerificationGas = isDeployed ? 150000 : 500000
     
     // Build UserOperation in v0.7 format
     const userOp = {
@@ -462,6 +471,10 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     const result = await response.json()
     
     if (result.error) {
+      // Check for AA50 error (insufficient funds to repay paymaster)
+      if (result.error.message && result.error.message.includes('AA50')) {
+        throw new Error('Not enough funds on the wallet account to repay the paymaster.')
+      }
       throw new Error(`Bundler error: ${result.error.message}`)
     }
     

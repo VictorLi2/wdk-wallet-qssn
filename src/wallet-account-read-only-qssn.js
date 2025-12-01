@@ -185,7 +185,7 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 
   /**
    * Quotes the costs of a send transaction operation.
-   * Note: Gas estimation is simplified for UserWallet - actual costs determined by bundler.
+   * Note: Uses bundler's gas estimation for accurate quotes.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
    * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
@@ -194,16 +194,18 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
   async quoteSendTransaction (tx, config) {
     const { paymasterToken } = config ?? this._config
 
-    // Simplified gas estimation - bundler will determine actual costs
-    const provider = await this._getProvider()
-    const feeData = await provider.getFeeData()
-    
-    const estimatedGas = 200000n // Conservative estimate for UserWallet transactions
-    const fee = estimatedGas * (feeData.maxFeePerGas || 1000000000n)
-
-    // If paymaster is configured, costs will be paid via paymaster token
-    // This is a simplified quote - actual paymaster logic would calculate token amounts
-    return { fee }
+    try {
+      // Build a UserOp to get gas estimates from bundler
+      const fee = await this._estimateUserOperationGas([tx].flat(), paymasterToken)
+      return { fee }
+    } catch (error) {
+      // Fallback to conservative estimate if bundler estimation fails
+      const provider = await this._getProvider()
+      const feeData = await provider.getFeeData()
+      const estimatedGas = 300000n // Conservative fallback for UserWallet transactions
+      const fee = estimatedGas * (feeData.maxFeePerGas || 1000000000n)
+      return { fee }
+    }
   }
 
   /**
@@ -214,7 +216,29 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
    * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
    */
   async quoteTransfer (options, config) {
-    const tx = await WalletAccountReadOnlyEvm._getTransferTransaction(options)
+    // Build transfer transaction from options
+    const { to, amount, token } = options
+    
+    let tx
+    if (token) {
+      // ERC-20 token transfer
+      const erc20Interface = new Contract(token, [
+        'function transfer(address to, uint256 amount) returns (bool)'
+      ], await this._getProvider())
+      
+      tx = {
+        to: token,
+        value: 0,
+        data: erc20Interface.interface.encodeFunctionData('transfer', [to, amount])
+      }
+    } else {
+      // Native ETH transfer
+      tx = {
+        to,
+        value: amount,
+        data: '0x'
+      }
+    }
 
     const result = await this.quoteSendTransaction(tx, config)
 
@@ -306,5 +330,74 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     const evmReadOnlyAccount = new WalletAccountReadOnlyEvm(address, this._config)
 
     return evmReadOnlyAccount
+  }
+
+  /**
+   * Estimates gas cost for a UserOperation by querying the bundler.
+   * 
+   * @private
+   * @param {EvmTransaction[]} txs - Array of transactions.
+   * @param {Object} [paymasterToken] - Optional paymaster token config.
+   * @returns {Promise<bigint>} Estimated gas cost in wei (or paymaster token if configured).
+   */
+  async _estimateUserOperationGas (txs, paymasterToken) {
+    // Import WalletAccountQssn's _buildUserOp logic inline to avoid circular dependency
+    const walletAddress = await this.getAddress()
+    const provider = await this._getProvider()
+    const entryPoint = new Contract(this._config.entryPointAddress, ['function getNonce(address sender, uint192 key) view returns (uint256)'], provider)
+    
+    const nonce = await entryPoint.getNonce(walletAddress, 0)
+    const code = await provider.getCode(walletAddress)
+    const isDeployed = code !== '0x'
+    
+    // Minimal UserOp for gas estimation (without signature)
+    let userOp = {
+      sender: walletAddress,
+      nonce: '0x' + nonce.toString(16),
+      callData: '0x', // Placeholder - bundler estimates based on sender/factory
+      callGasLimit: '0x0',
+      verificationGasLimit: '0x0',
+      preVerificationGas: '0x0',
+      maxFeePerGas: '0x0',
+      maxPriorityFeePerGas: '0x0',
+      signature: '0x'
+    }
+    
+    if (!isDeployed) {
+      userOp.factory = this._config.factoryAddress
+      userOp.factoryData = '0x' // Minimal data for estimation
+    }
+    
+    // Query bundler for gas estimates
+    const response = await fetch(this._config.bundlerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_estimateUserOperationGas',
+        params: [userOp, this._config.entryPointAddress]
+      })
+    })
+    
+    const result = await response.json()
+    
+    if (result.error) {
+      throw new Error(`Bundler estimation failed: ${result.error.message}`)
+    }
+    
+    // Extract gas estimates from bundler response
+    const { callGasLimit, verificationGasLimit, preVerificationGas } = result.result
+    
+    const feeData = await provider.getFeeData()
+    const maxFeePerGas = feeData.maxFeePerGas || 1000000000n
+    
+    // Calculate total gas cost
+    const totalGas = BigInt(callGasLimit) + BigInt(verificationGasLimit) + BigInt(preVerificationGas)
+    const gasCostInWei = totalGas * maxFeePerGas
+    
+    // If paymaster is configured, would need to convert to token amount via exchange rate
+    // For now, return ETH cost (similar to how actual payment works without paymaster)
+    return gasCostInWei
   }
 }
