@@ -73,6 +73,18 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
     /** @private */
     this._mldsaAccount = mldsaAccount
+    
+    /** @private - For raw ECDSA signing without Ethereum Signed Message prefix */
+    // Derive the same wallet as ownerAccount for raw signing
+    const fullPath = `m/44'/60'/${path}`
+    this._ecdsaWallet = typeof ecdsaSeed === 'string'
+      ? ethers.Wallet.fromPhrase(ecdsaSeed).derivePath(fullPath)
+      : ethers.HDNodeWallet.fromSeed(ecdsaSeed).derivePath(fullPath)
+    
+    // Verify addresses match
+    if (this._ecdsaWallet.address.toLowerCase() !== ownerAccount._address.toLowerCase()) {
+      throw new Error(`ECDSA wallet address mismatch: ${this._ecdsaWallet.address} !== ${ownerAccount._address}`)
+    }
   }
 
   /**
@@ -339,76 +351,62 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     // Bundler requires at least 139160 for deployed wallets
     const preVerificationGas = isDeployed ? 150000 : 500000
     
-    // Build UserOperation in v0.7 format
+    const verificationGasLimit = isDeployed ? 196608 : 2097152
+    const callGasLimit = 196608
+    
+    // Build UserOperation in v0.9 PackedUserOperation format
+    // Pack initCode: factory + factoryData
+    const initCode = factory ? ethers.concat([factory, factoryData]) : '0x'
+    
+    // Pack accountGasLimits: verificationGasLimit (high 128) + callGasLimit (low 128)
+    const accountGasLimits = ethers.concat([
+      ethers.zeroPadValue(ethers.toBeArray(verificationGasLimit), 16),
+      ethers.zeroPadValue(ethers.toBeArray(callGasLimit), 16)
+    ])
+    
+    // Pack gasFees: maxPriorityFeePerGas (high 128) + maxFeePerGas (low 128)
+    const gasFees = ethers.concat([
+      ethers.zeroPadValue(ethers.toBeArray(feeData.maxPriorityFeePerGas || 1000000000n), 16),
+      ethers.zeroPadValue(ethers.toBeArray(feeData.maxFeePerGas || 1000000000n), 16)
+    ])
+    
     const userOp = {
       sender: walletAddress,
       nonce: ethers.toBeHex(nonce),
+      initCode,
       callData,
-      callGasLimit: ethers.toBeHex(BigInt(196608)),
-      verificationGasLimit: ethers.toBeHex(BigInt(isDeployed ? 196608 : 2097152)),
+      accountGasLimits,
       preVerificationGas: ethers.toBeHex(BigInt(preVerificationGas)),
-      maxFeePerGas: ethers.toBeHex(feeData.maxFeePerGas || 1000000000n),
-      maxPriorityFeePerGas: ethers.toBeHex(feeData.maxPriorityFeePerGas || 1000000000n),
+      gasFees,
+      paymasterAndData: '0x',
       signature
     }
-    
-    // Add factory fields if deploying (v0.7)
-    if (factory) {
-      userOp.factory = factory
-      userOp.factoryData = factoryData
-    }
-    
-    // No paymaster - don't add paymaster fields at all
     
     return userOp
   }
 
   /** @private */
   _getUserOpHash (userOp) {
-    // Pack initCode (factory + factoryData) for v0.7
-    const initCode = userOp.factory 
-      ? ethers.concat([userOp.factory, userOp.factoryData || '0x'])
-      : '0x'
+    // UserOp is already in v0.9 PackedUserOperation format
+    // Calculate hash exactly as EntryPoint v0.9 does
     
-    // Pack paymasterAndData for v0.7
-    const paymasterAndData = userOp.paymaster
-      ? ethers.concat([
-          userOp.paymaster,
-          ethers.zeroPadValue(ethers.toBeArray(userOp.paymasterVerificationGasLimit || 0), 16),
-          ethers.zeroPadValue(ethers.toBeArray(userOp.paymasterPostOpGasLimit || 0), 16),
-          userOp.paymasterData || '0x'
-        ])
-      : '0x'
-    
-    // Pack gas limits for v0.7
-    const accountGasLimits = ethers.concat([
-      ethers.zeroPadValue(ethers.toBeArray(userOp.verificationGasLimit), 16),
-      ethers.zeroPadValue(ethers.toBeArray(userOp.callGasLimit), 16)
-    ])
-    
-    const gasFees = ethers.concat([
-      ethers.zeroPadValue(ethers.toBeArray(userOp.maxPriorityFeePerGas), 16),
-      ethers.zeroPadValue(ethers.toBeArray(userOp.maxFeePerGas), 16)
-    ])
-    
-    // Hash the packed UserOp according to ERC-4337 v0.7
     const userOpHash = ethers.keccak256(
       AbiCoder.defaultAbiCoder().encode(
         ['address', 'uint256', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'bytes32', 'bytes32'],
         [
           userOp.sender,
           userOp.nonce,
-          ethers.keccak256(initCode),
+          ethers.keccak256(userOp.initCode),
           ethers.keccak256(userOp.callData),
-          accountGasLimits,
+          userOp.accountGasLimits,
           userOp.preVerificationGas,
-          gasFees,
-          ethers.keccak256(paymasterAndData)
+          userOp.gasFees,
+          ethers.keccak256(userOp.paymasterAndData)
         ]
       )
     )
     
-    // Add EntryPoint and chainId according to ERC-4337
+    // Add EntryPoint and chainId according to ERC-4337 v0.9
     return ethers.keccak256(
       AbiCoder.defaultAbiCoder().encode(
         ['bytes32', 'address', 'uint256'],
@@ -425,8 +423,11 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     // Get UserOp hash for signing
     const userOpHash = this._getUserOpHash(userOp)
     
-    // Sign with ECDSA
-    const ecdsaSignature = await this._ownerAccount.sign(ethers.getBytes(userOpHash))
+    // Sign with ECDSA using raw signing (no Ethereum Signed Message prefix)
+    // userOpHash is already a 32-byte hash, use SigningKey.sign directly
+    const ecdsaSig = this._ecdsaWallet.signingKey.sign(userOpHash)
+    // Serialize to bytes format: r (32) + s (32) + v (1) = 65 bytes
+    const ecdsaSignature = ethers.Signature.from(ecdsaSig).serialized
     
     // Sign with ML-DSA (returns hex string)
     const mldsaSignatureHex = await this._mldsaAccount.sign(ethers.getBytes(userOpHash))
@@ -439,10 +440,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
       [ecdsaSignature, mldsaSignatureHex, mldsaPublicKeyHex, this._ownerAccount._address]
     )
     
-    // Debug: log the UserOp being sent
-    console.log('Sending UserOp:', JSON.stringify(userOp, null, 2))
-    
-    // Prepare bundler params (include paymaster options if configured)
+    // Send v0.9 PackedUserOperation to bundler
     const bundlerParams = [userOp, this._config.entryPointAddress]
     
     // Add paymaster options if configured and provided (for future gas sponsorship)
