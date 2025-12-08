@@ -21,7 +21,7 @@
 export const QSSN_CONFIG_PRESETS = {
   // Anvil Local Testnet
   31337: {
-    bundlerUrl: 'http://localhost:3000/rpc',
+    bundlerUrl: 'http://localhost:14337/rpc',
     entryPointAddress: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
     factoryAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0'
   }

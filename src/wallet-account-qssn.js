@@ -354,32 +354,24 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     const verificationGasLimit = isDeployed ? 196608 : 2097152
     const callGasLimit = 196608
     
-    // Build UserOperation in v0.9 PackedUserOperation format
-    // Pack initCode: factory + factoryData
-    const initCode = factory ? ethers.concat([factory, factoryData]) : '0x'
-    
-    // Pack accountGasLimits: verificationGasLimit (high 128) + callGasLimit (low 128)
-    const accountGasLimits = ethers.concat([
-      ethers.zeroPadValue(ethers.toBeArray(verificationGasLimit), 16),
-      ethers.zeroPadValue(ethers.toBeArray(callGasLimit), 16)
-    ])
-    
-    // Pack gasFees: maxPriorityFeePerGas (high 128) + maxFeePerGas (low 128)
-    const gasFees = ethers.concat([
-      ethers.zeroPadValue(ethers.toBeArray(feeData.maxPriorityFeePerGas || 1000000000n), 16),
-      ethers.zeroPadValue(ethers.toBeArray(feeData.maxFeePerGas || 1000000000n), 16)
-    ])
-    
+    // Build UserOperation in v0.9 unpacked format (for bundler RPC)
+    // The bundler expects unpacked fields, not packed format
     const userOp = {
       sender: walletAddress,
       nonce: ethers.toBeHex(nonce),
-      initCode,
       callData,
-      accountGasLimits,
+      callGasLimit: ethers.toBeHex(BigInt(callGasLimit)),
+      verificationGasLimit: ethers.toBeHex(BigInt(verificationGasLimit)),
       preVerificationGas: ethers.toBeHex(BigInt(preVerificationGas)),
-      gasFees,
-      paymasterAndData: '0x',
+      maxFeePerGas: ethers.toBeHex(feeData.maxFeePerGas || 1000000000n),
+      maxPriorityFeePerGas: ethers.toBeHex(feeData.maxPriorityFeePerGas || 1000000000n),
       signature
+    }
+    
+    // Add factory and factoryData if not deployed
+    if (!isDeployed) {
+      userOp.factory = factory
+      userOp.factoryData = factoryData
     }
     
     return userOp
@@ -387,31 +379,68 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
   /** @private */
   _getUserOpHash (userOp) {
-    // UserOp is already in v0.9 PackedUserOperation format
-    // Calculate hash exactly as EntryPoint v0.9 does
+    // UserOp is in v0.9 unpacked format, we need to pack it for hashing
+    // Calculate hash exactly as EntryPoint v0.9 does:
     
-    const userOpHash = ethers.keccak256(
+    // Pack initCode: factory + factoryData (or '0x' if deployed)
+    const initCode = userOp.factory 
+      ? ethers.concat([userOp.factory, userOp.factoryData || '0x'])
+      : '0x'
+    
+    // Pack accountGasLimits: verificationGasLimit (high 128) + callGasLimit (low 128)
+    const accountGasLimits = ethers.concat([
+      ethers.zeroPadValue(ethers.toBeArray(BigInt(userOp.verificationGasLimit)), 16),
+      ethers.zeroPadValue(ethers.toBeArray(BigInt(userOp.callGasLimit)), 16)
+    ])
+    
+    // Pack gasFees: maxPriorityFeePerGas (high 128) + maxFeePerGas (low 128)
+    const gasFees = ethers.concat([
+      ethers.zeroPadValue(ethers.toBeArray(BigInt(userOp.maxPriorityFeePerGas)), 16),
+      ethers.zeroPadValue(ethers.toBeArray(BigInt(userOp.maxFeePerGas)), 16)
+    ])
+    
+    // EIP-712 type hash for PackedUserOperation
+    const PACKED_USEROP_TYPEHASH = ethers.keccak256(
+      ethers.toUtf8Bytes(
+        'PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)'
+      )
+    )
+    
+    // Step 1: Encode the struct hash (EIP-712 structHash)
+    const structHash = ethers.keccak256(
       AbiCoder.defaultAbiCoder().encode(
-        ['address', 'uint256', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'bytes32', 'bytes32'],
+        ['bytes32', 'address', 'uint256', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'bytes32', 'bytes32'],
         [
+          PACKED_USEROP_TYPEHASH,
           userOp.sender,
           userOp.nonce,
-          ethers.keccak256(userOp.initCode),
+          ethers.keccak256(initCode),
           ethers.keccak256(userOp.callData),
-          userOp.accountGasLimits,
+          accountGasLimits,
           userOp.preVerificationGas,
-          userOp.gasFees,
-          ethers.keccak256(userOp.paymasterAndData)
+          gasFees,
+          ethers.keccak256('0x') // paymasterAndData
         ]
       )
     )
     
-    // Add EntryPoint and chainId according to ERC-4337 v0.9
+    // Step 2: Calculate EIP-712 domain separator
+    // The EntryPoint uses EIP-712 with domain (name, version, chainId, verifyingContract)
+    const domainSeparator = ethers.TypedDataEncoder.hashDomain({
+      name: 'ERC4337',
+      version: '1',
+      chainId: this._config.chainId,
+      verifyingContract: this._config.entryPointAddress
+    })
+    
+    // Step 3: Calculate EIP-712 typed data hash
+    // toTypedDataHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash))
     return ethers.keccak256(
-      AbiCoder.defaultAbiCoder().encode(
-        ['bytes32', 'address', 'uint256'],
-        [userOpHash, this._config.entryPointAddress, this._config.chainId]
-      )
+      ethers.concat([
+        ethers.toUtf8Bytes('\x19\x01'),
+        domainSeparator,
+        structHash
+      ])
     )
   }
 
@@ -426,8 +455,15 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     // Sign with ECDSA using raw signing (no Ethereum Signed Message prefix)
     // userOpHash is already a 32-byte hash, use SigningKey.sign directly
     const ecdsaSig = this._ecdsaWallet.signingKey.sign(userOpHash)
-    // Serialize to bytes format: r (32) + s (32) + v (1) = 65 bytes
-    const ecdsaSignature = ethers.Signature.from(ecdsaSig).serialized
+    const sig = ethers.Signature.from(ecdsaSig)
+    
+    // OpenZeppelin expects r (32 bytes) + s (32 bytes) + v (1 byte) = 65 bytes total
+    // Construct manually to ensure correct format
+    const ecdsaSignature = ethers.concat([
+      ethers.zeroPadValue(sig.r, 32),
+      ethers.zeroPadValue(sig.s, 32),
+      ethers.toBeArray(sig.v)
+    ])
     
     // Sign with ML-DSA (returns hex string)
     const mldsaSignatureHex = await this._mldsaAccount.sign(ethers.getBytes(userOpHash))
