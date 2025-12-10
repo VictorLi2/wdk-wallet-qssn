@@ -23,8 +23,17 @@
   "main": "index.js",
   "type": "module",
   "types": "./types",
+  "files": [
+    "index.js",
+    "bare.js",
+    "src/",
+    "types/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build:types": "tsc",
+    "prepare": "npm run build:types",
     "lint": "standard",
     "lint:fix": "standard --fix"
   },
