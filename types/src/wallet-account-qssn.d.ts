@@ -13,6 +13,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn impleme
     private _ownerAccount;
     /** @private */
     private _mldsaAccount;
+    _ecdsaWallet: ethers.HDNodeWallet;
     /**
      * The derivation path's index of this account.
      *
@@ -98,56 +99,30 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn impleme
      */
     getECDSAAddress(): string;
     /**
-     * Returns the salt nonce used for Safe address derivation.
+     * Returns the salt nonce used for wallet address derivation.
      *
      * @returns {string} The salt nonce (keccak256 of ML-DSA public key).
      */
     getSaltNonce(): string;
     /**
-     * Returns the underlying ML-DSA account.
-     *
-     * @returns {WalletAccountMldsa} The ML-DSA account.
-     */
-    getMLDSAAccount(): WalletAccountMldsa;
-    /**
-     * Gets the UserOperation data including ML-DSA signature and public key.
-     * This is useful for debugging and verifying what data is being sent to the bundler/validator.
-     *
-     * @param {EvmTransaction | EvmTransaction[]} tx - The transaction(s) to create a UserOperation for.
-     * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - Optional config override.
-     * @returns {Promise<Object>} The UserOperation with ML-DSA data.
-     */
-    getUserOperationWithMLDSA(tx: EvmTransaction | EvmTransaction[], config?: Pick<QssnWalletConfig, "paymasterToken">): Promise<any>;
-    /**
-     * Signs a message with ML-DSA (for off-chain verification).
-     *
-     * @param {string} message - The message to sign.
-     * @returns {Promise<string>} The ML-DSA signature.
-     */
-    signWithMLDSA(message: string): Promise<string>;
-    /**
-     * Verifies an ML-DSA signature.
-     *
-     * @param {string} message - The original message.
-     * @param {string} signature - The ML-DSA signature.
-     * @returns {Promise<boolean>} True if valid.
-     */
-    verifyMLDSA(message: string, signature: string): Promise<boolean>;
-    /**
      * Disposes the wallet account, erasing the private keys from memory.
      */
     dispose(): void;
+    /** @private */
+    private _buildUserOp;
+    /** @private */
+    private _getUserOpHash;
     /** @private */
     private _sendUserOperation;
 }
 export type Eip1193Provider = import("ethers").Eip1193Provider;
 export type IWalletAccount = import("@tetherto/wdk-wallet").IWalletAccount;
-export type KeyPair = import("@tetherto/wdk-wallet-evm").KeyPair;
-export type EvmTransaction = import("@tetherto/wdk-wallet-evm").EvmTransaction;
-export type TransactionResult = import("@tetherto/wdk-wallet-evm").TransactionResult;
-export type TransferOptions = import("@tetherto/wdk-wallet-evm").TransferOptions;
-export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
-export type ApproveOptions = import("@tetherto/wdk-wallet-evm").ApproveOptions;
+export type KeyPair = any;
+export type EvmTransaction = any;
+export type TransactionResult = any;
+export type TransferOptions = any;
+export type TransferResult = any;
+export type ApproveOptions = any;
 export type QssnWalletConfig = import("./wallet-account-read-only-qssn.js").QssnWalletConfig;
 import WalletAccountReadOnlyQssn from './wallet-account-read-only-qssn.js';
-import { WalletAccountMldsa } from './wallet-account-mldsa.js';
+import { ethers } from 'ethers';

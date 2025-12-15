@@ -16,7 +16,7 @@
 
 import { WalletAccountReadOnly } from '@tetherto/wdk-wallet'
 
-import { WalletAccountReadOnlyEvm } from '@tetherto/wdk-wallet-evm'
+import { WalletAccountReadOnlyEvmJs } from './wallet-account-read-only-evm-js.js'
 
 import { Contract, JsonRpcProvider, BrowserProvider } from 'ethers'
 
@@ -327,7 +327,7 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
   async _getEvmReadOnlyAccount () {
     const address = await this.getAddress()
 
-    const evmReadOnlyAccount = new WalletAccountReadOnlyEvm(address, this._config)
+    const evmReadOnlyAccount = new WalletAccountReadOnlyEvmJs(address, this._config)
 
     return evmReadOnlyAccount
   }

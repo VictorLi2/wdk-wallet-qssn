@@ -16,9 +16,11 @@
 
 import WalletManager from '@tetherto/wdk-wallet'
 
-import WalletManagerEvm from '@tetherto/wdk-wallet-evm'
-
 import { BrowserProvider, JsonRpcProvider } from 'ethers'
+
+// Fee rate multipliers (from @tetherto/wdk-wallet-evm)
+const FEE_RATE_NORMAL_MULTIPLIER = 100n
+const FEE_RATE_FAST_MULTIPLIER = 115n
 
 import WalletAccountQssn from './wallet-account-qssn.js'
 
@@ -117,8 +119,8 @@ export default class WalletManagerQssn extends WalletManager {
     const { maxFeePerGas } = await this._provider.getFeeData()
 
     return {
-      normal: maxFeePerGas * WalletManagerEvm._FEE_RATE_NORMAL_MULTIPLIER / 100n,
-      fast: maxFeePerGas * WalletManagerEvm._FEE_RATE_FAST_MULTIPLIER / 100n
+      normal: maxFeePerGas * FEE_RATE_NORMAL_MULTIPLIER / 100n,
+      fast: maxFeePerGas * FEE_RATE_FAST_MULTIPLIER / 100n
     }
   }
 }

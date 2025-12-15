@@ -1,16 +1,25 @@
 /** @typedef {import('ethers').Provider} Provider */
 /** @typedef {import('@tetherto/wdk-wallet-evm').FeeRates} FeeRates */
-/** @typedef {import('./wallet-account-qssn.js').QssnWalletConfig} QssnWalletConfig */
-export default class WalletManagerQssn extends WalletManagerEvm {
+/** @typedef {import('./wallet-account-read-only-qssn.js').QssnUserConfig} QssnUserConfig */
+/** @typedef {import('./wallet-account-read-only-qssn.js').QssnWalletConfig} QssnWalletConfig */
+export default class WalletManagerQssn extends WalletManager {
     /**
      * Creates a new quantum-safe wallet manager with dual-key (ECDSA + ML-DSA) support for ERC-4337.
+     * bundlerUrl, entryPointAddress, and factoryAddress are automatically set based on chainId.
      *
      * @param {string | Uint8Array} ecdsaSeed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase or seed bytes for ECDSA keys.
      * @param {string | Uint8Array} mldsaSeed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase or seed bytes for ML-DSA keys.
-     * @param {QssnWalletConfig} config - The configuration object.
+     * @param {QssnUserConfig} userConfig - The configuration object (chainId and provider required, presets applied automatically).
      */
-    constructor(ecdsaSeed: string | Uint8Array, mldsaSeed: string | Uint8Array, config: QssnWalletConfig);
-    _mldsaSeed: Uint8Array<ArrayBufferLike>;
+    constructor(ecdsaSeed: string | Uint8Array, mldsaSeed: string | Uint8Array, userConfig: QssnUserConfig);
+    mldsaSeed: string | Uint8Array<ArrayBufferLike>;
+    /**
+     * An ethers provider to interact with a node of the blockchain.
+     *
+     * @protected
+     * @type {Provider | undefined}
+     */
+    protected _provider: Provider | undefined;
     /**
      * Returns the wallet account at a specific index (see [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)).
      *
@@ -31,9 +40,16 @@ export default class WalletManagerQssn extends WalletManagerEvm {
      * @returns {Promise<WalletAccountQssn>} The account.
      */
     getAccountByPath(path: string): Promise<WalletAccountQssn>;
+    /**
+     * Returns the current fee rates.
+     *
+     * @returns {Promise<FeeRates>} The fee rates (in weis).
+     */
+    getFeeRates(): Promise<FeeRates>;
 }
 export type Provider = import("ethers").Provider;
-export type FeeRates = import("@tetherto/wdk-wallet-evm").FeeRates;
-export type QssnWalletConfig = import("./wallet-account-qssn.js").QssnWalletConfig;
-import WalletManagerEvm from '@tetherto/wdk-wallet-evm';
+export type FeeRates = any;
+export type QssnUserConfig = import("./wallet-account-read-only-qssn.js").QssnUserConfig;
+export type QssnWalletConfig = import("./wallet-account-read-only-qssn.js").QssnWalletConfig;
+import WalletManager from '@tetherto/wdk-wallet';
 import WalletAccountQssn from './wallet-account-qssn.js';

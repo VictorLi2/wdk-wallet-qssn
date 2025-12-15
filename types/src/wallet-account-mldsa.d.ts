@@ -5,12 +5,12 @@ export class WalletAccountMldsa {
     /**
      * Creates a new ML-DSA wallet account.
      *
-     * @param {Uint8Array} seed - The wallet's seed bytes
+     * @param {string | Uint8Array} seed - The wallet's BIP-39 mnemonic phrase or seed bytes
      * @param {string} path - The BIP-44 derivation path (e.g. "0'/0/0")
      * @param {Object} config - Configuration object
      * @param {number} [config.securityLevel=65] - ML-DSA security level (44, 65, or 87)
      */
-    constructor(seed: Uint8Array, path: string, config?: {
+    constructor(seed: string | Uint8Array, path: string, config?: {
         securityLevel?: number;
     });
     _path: string;
@@ -22,27 +22,21 @@ export class WalletAccountMldsa {
         privateKey: Uint8Array;
         publicKey: Uint8Array;
     };
-    _address: string;
     /**
      * The derivation path of this account.
      * @type {string}
      */
     get path(): string;
     /**
-     * Returns the ML-DSA public key.
-     * @returns {Uint8Array} The ML-DSA public key
+     * The ML-DSA public key.
+     * @type {Uint8Array}
      */
-    getPublicKey(): Uint8Array;
+    get publicKey(): Uint8Array;
     /**
-     * Returns the ML-DSA public key as hex string.
-     * @returns {string} The ML-DSA public key (0x...)
+     * The ML-DSA public key as hex string.
+     * @type {string}
      */
-    getPublicKeyHex(): string;
-    /**
-     * Returns the Ethereum address derived from ML-DSA public key.
-     * @returns {string} The Ethereum address (0x...)
-     */
-    getAddress(): string;
+    get publicKeyHex(): string;
     /**
      * Signs a message using ML-DSA.
      * @param {string} message - The message to sign

@@ -16,7 +16,10 @@
 
 import { Contract, keccak256, AbiCoder, ethers, JsonRpcProvider, BrowserProvider } from 'ethers'
 
-import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
+// Use pure JavaScript version by default
+// If you need Node.js native performance, install @tetherto/wdk-wallet-evm separately
+import { WalletAccountEvmJs } from './wallet-account-evm-js.js'
+const WalletAccountEvm = WalletAccountEvmJs
 
 import WalletAccountReadOnlyQssn from './wallet-account-read-only-qssn.js'
 import { WalletAccountMldsa } from './wallet-account-mldsa.js'

@@ -1,31 +1,12 @@
-/** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
-/** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransaction} EvmTransaction */
-/** @typedef {import('@tetherto/wdk-wallet-evm').TransactionResult} TransactionResult */
-/** @typedef {import('@tetherto/wdk-wallet-evm').TransferOptions} TransferOptions */
-/** @typedef {import('@tetherto/wdk-wallet-evm').TransferResult} TransferResult */
-/** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
-/**
- * @typedef {Object} QssnWalletConfig
- * @property {number} chainId - The blockchain's id (e.g., 1 for ethereum).
- * @property {string | Eip1193Provider} provider - The url of the rpc provider, or an instance of a class that implements eip-1193.
- * @property {string} bundlerUrl - The url of the bundler service.
- * @property {string} paymasterUrl - The url of the paymaster service.
- * @property {string} paymasterAddress - The address of the paymaster smart contract.
- * @property {string} entryPointAddress - The address of the entry point smart contract.
- * @property {string} safeModulesVersion - The safe modules version.
- * @property {Object} paymasterToken - The paymaster token configuration.
- * @property {string} paymasterToken.address - The address of the paymaster token.
- * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
- */
 export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     /**
      * Creates a new read-only quantum-safe wallet account with ERC-4337 account abstraction.
      *
-     * @param {string} address - The evm account's address.
+     * @param {string} ecdsaOwner - The ECDSA owner address.
+     * @param {Uint8Array} mldsaPublicKey - The ML-DSA public key.
      * @param {Omit<QssnWalletConfig, 'transferMaxFee'>} config - The configuration object.
-     * @param {string} saltNonce - Salt nonce for Safe address derivation (keccak256 of ML-DSA public key).
      */
-    constructor(address: string, config: Omit<QssnWalletConfig, "transferMaxFee">, saltNonce: string);
+    constructor(ecdsaOwner: string, mldsaPublicKey: Uint8Array, config: Omit<QssnWalletConfig, "transferMaxFee">);
     /**
      * The read-only quantum-safe wallet account configuration.
      *
@@ -34,19 +15,12 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
      */
     protected _config: Omit<QssnWalletConfig, "transferMaxFee">;
     /**
-     * The safe's implementation of the erc-4337 standard.
+     * The provider instance.
      *
      * @protected
-     * @type {Safe4337Pack | undefined}
+     * @type {JsonRpcProvider | BrowserProvider | undefined}
      */
-    protected _safe4337Pack: Safe4337Pack | undefined;
-    /**
-     * The safe's fee estimator.
-     *
-     * @protected
-     * @type {GenericFeeEstimator | undefined}
-     */
-    protected _feeEstimator: GenericFeeEstimator | undefined;
+    protected _provider: JsonRpcProvider | BrowserProvider | undefined;
     /**
      * The chain id.
      *
@@ -54,32 +28,41 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
      * @type {bigint | undefined}
      */
     protected _chainId: bigint | undefined;
+    /**
+     * The cached wallet address.
+     *
+     * @protected
+     * @type {string | undefined}
+     */
+    protected _walletAddress: string | undefined;
     /** @private */
-    private _ownerAccountAddress;
+    private _ecdsaOwner;
     /** @private */
-    private _saltNonce;
+    private _mldsaPublicKey;
     /**
      * Returns the account's balance for the paymaster token provided in the wallet account configuration.
      *
      * @returns {Promise<bigint>} The paymaster token balance (in base unit).
+     * @throws {Error} If no paymaster token is configured.
      */
     getPaymasterTokenBalance(): Promise<bigint>;
     /**
      * Quotes the costs of a send transaction operation.
+     * Note: Uses bundler's gas estimation for accurate quotes.
      *
      * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
-     * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+     * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
      * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
      */
-    quoteSendTransaction(tx: EvmTransaction | EvmTransaction[], config?: Pick<QssnWalletConfig, "paymasterToken">): Promise<Omit<TransactionResult, "hash">>;
+    quoteSendTransaction(tx: EvmTransaction | EvmTransaction[], config?: QssnWalletConfig): Promise<Omit<TransactionResult, "hash">>;
     /**
      * Quotes the costs of a transfer operation.
      *
      * @param {TransferOptions} options - The transfer's options.
-     * @param {Pick<QssnWalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+     * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
      * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
      */
-    quoteTransfer(options: TransferOptions, config?: Pick<QssnWalletConfig, "paymasterToken">): Promise<Omit<TransferResult, "hash">>;
+    quoteTransfer(options: TransferOptions, config?: QssnWalletConfig): Promise<Omit<TransferResult, "hash">>;
     /**
      * Returns a transaction's receipt.
      *
@@ -95,12 +78,12 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
      */
     getAllowance(token: string, spender: string): Promise<bigint>;
     /**
-     * Returns the safe's erc-4337 pack of the account.
+     * Returns the provider instance.
      *
      * @protected
-     * @returns {Promise<Safe4337Pack>} The safe's erc-4337 pack.
+     * @returns {Promise<JsonRpcProvider | BrowserProvider>} The provider.
      */
-    protected _getSafe4337Pack(): Promise<Safe4337Pack>;
+    protected _getProvider(): Promise<JsonRpcProvider | BrowserProvider>;
     /**
      * Returns the chain id.
      *
@@ -110,20 +93,25 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     protected _getChainId(): Promise<bigint>;
     /** @private */
     private _getEvmReadOnlyAccount;
-    /** @private */
-    private _getFeeEstimator;
-    /** @private */
-    private _getUserOperationGasCost;
+    /**
+     * Estimates gas cost for a UserOperation by querying the bundler.
+     *
+     * @private
+     * @param {EvmTransaction[]} txs - Array of transactions.
+     * @param {Object} [paymasterToken] - Optional paymaster token config.
+     * @returns {Promise<bigint>} Estimated gas cost in wei (or paymaster token if configured).
+     */
+    private _estimateUserOperationGas;
 }
 export type Eip1193Provider = import("ethers").Eip1193Provider;
-export type EvmTransaction = import("@tetherto/wdk-wallet-evm").EvmTransaction;
-export type TransactionResult = import("@tetherto/wdk-wallet-evm").TransactionResult;
-export type TransferOptions = import("@tetherto/wdk-wallet-evm").TransferOptions;
-export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
-export type EvmTransactionReceipt = import("@tetherto/wdk-wallet-evm").EvmTransactionReceipt;
+export type EvmTransaction = any;
+export type TransactionResult = any;
+export type TransferOptions = any;
+export type TransferResult = any;
+export type EvmTransactionReceipt = any;
 export type QssnWalletConfig = {
     /**
-     * - The blockchain's id (e.g., 1 for ethereum).
+     * - The blockchain's id (e.g., 31337 for local Anvil).
      */
     chainId: number;
     /**
@@ -131,36 +119,75 @@ export type QssnWalletConfig = {
      */
     provider: string | Eip1193Provider;
     /**
-     * - The url of the bundler service.
+     * - The url of the bundler service (set automatically via preset).
      */
     bundlerUrl: string;
     /**
-     * - The url of the paymaster service.
-     */
-    paymasterUrl: string;
-    /**
-     * - The address of the paymaster smart contract.
-     */
-    paymasterAddress: string;
-    /**
-     * - The address of the entry point smart contract.
+     * - The address of the entry point smart contract (set automatically via preset).
      */
     entryPointAddress: string;
     /**
-     * - The safe modules version.
+     * - The address of the QssnWalletFactory contract (set automatically via preset).
      */
-    safeModulesVersion: string;
+    factoryAddress: string;
     /**
-     * - The paymaster token configuration.
+     * - The url of the paymaster service (optional, for future gas sponsorship).
      */
-    paymasterToken: {
-        address: string;
+    paymasterUrl?: string;
+    /**
+     * - The address of the paymaster smart contract (optional, for future gas sponsorship).
+     */
+    paymasterAddress?: string;
+    /**
+     * - The paymaster token configuration (optional, for future gas sponsorship).
+     */
+    paymasterToken?: {
+        address?: string;
     };
     /**
      * - The maximum fee amount for transfer operations.
      */
     transferMaxFee?: number | bigint;
+    /**
+     * - ML-DSA security level (44, 65, or 87). Default: 65.
+     */
+    mldsaSecurityLevel?: number;
+};
+/**
+ * User-provided configuration. bundlerUrl, entryPointAddress, and factoryAddress are set automatically based on chainId.
+ */
+export type QssnUserConfig = {
+    /**
+     * - The blockchain's id (e.g., 31337 for local Anvil).
+     */
+    chainId: number;
+    /**
+     * - The url of the rpc provider, or an instance of a class that implements eip-1193.
+     */
+    provider: string | Eip1193Provider;
+    /**
+     * - The maximum fee amount for transfer operations.
+     */
+    transferMaxFee?: number | bigint;
+    /**
+     * - ML-DSA security level (44, 65, or 87). Default: 65.
+     */
+    mldsaSecurityLevel?: number;
+    /**
+     * - The url of the paymaster service (optional, for future gas sponsorship).
+     */
+    paymasterUrl?: string;
+    /**
+     * - The address of the paymaster smart contract (optional, for future gas sponsorship).
+     */
+    paymasterAddress?: string;
+    /**
+     * - The paymaster token configuration (optional, for future gas sponsorship).
+     */
+    paymasterToken?: {
+        address?: string;
+    };
 };
 import { WalletAccountReadOnly } from '@tetherto/wdk-wallet';
-import { Safe4337Pack } from '@wdk-safe-global/relay-kit';
-import { GenericFeeEstimator } from '@wdk-safe-global/relay-kit';
+import { JsonRpcProvider } from 'ethers';
+import { BrowserProvider } from 'ethers';
