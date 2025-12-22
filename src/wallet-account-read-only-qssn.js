@@ -18,7 +18,7 @@ import { WalletAccountReadOnly } from '@tetherto/wdk-wallet'
 
 import { WalletAccountReadOnlyEvmJs } from './wallet-account-read-only-evm-js.js'
 
-import { Contract, JsonRpcProvider, BrowserProvider } from 'ethers'
+import { Contract, JsonRpcProvider, BrowserProvider, Interface, toBeHex } from 'ethers'
 
 /** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
 
@@ -194,18 +194,36 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
   async quoteSendTransaction (tx, config) {
     const { paymasterToken } = config ?? this._config
 
+    // TEMP: Skip gas estimation entirely until state overrides are fixed
+    // Gas estimation with CallGasEstimationProxy doesn't properly handle operator validation
+    console.log('[QSSN SDK] Skipping gas estimation, using conservative fallback')
+    const provider = await this._getProvider()
+    const feeData = await provider.getFeeData()
+    const estimatedGas = 500000n // Conservative fallback for UserWallet transactions
+    const fee = estimatedGas * (feeData.maxFeePerGas || 1000000000n)
+    console.log('[QSSN SDK] Using fallback fee:', fee)
+    return { fee }
+
+    /* Original gas estimation code - disabled until state overrides work
     try {
       // Build a UserOp to get gas estimates from bundler
+      console.log('[QSSN SDK] Calling gas estimation with real callData...')
       const fee = await this._estimateUserOperationGas([tx].flat(), paymasterToken)
+      console.log('[QSSN SDK] Gas estimation succeeded, fee:', fee)
       return { fee }
     } catch (error) {
-      // Fallback to conservative estimate if bundler estimation fails
+      console.error('[QSSN SDK] Gas estimation FAILED:', error.message)
+      
+      // For now, always use fallback since gas estimation with state overrides is complex
+      // TODO: Fix state overrides for proper validation
       const provider = await this._getProvider()
       const feeData = await provider.getFeeData()
       const estimatedGas = 300000n // Conservative fallback for UserWallet transactions
       const fee = estimatedGas * (feeData.maxFeePerGas || 1000000000n)
+      console.log('[QSSN SDK] Using fallback fee (gas estimation not reliable yet):', fee)
       return { fee }
     }
+    */
   }
 
   /**
@@ -341,7 +359,6 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
    * @returns {Promise<bigint>} Estimated gas cost in wei (or paymaster token if configured).
    */
   async _estimateUserOperationGas (txs, paymasterToken) {
-    // Import WalletAccountQssn's _buildUserOp logic inline to avoid circular dependency
     const walletAddress = await this.getAddress()
     const provider = await this._getProvider()
     const entryPoint = new Contract(this._config.entryPointAddress, ['function getNonce(address sender, uint192 key) view returns (uint256)'], provider)
@@ -350,11 +367,40 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     const code = await provider.getCode(walletAddress)
     const isDeployed = code !== '0x'
     
-    // Minimal UserOp for gas estimation (without signature)
+    // Create factory and factoryData if not deployed
+    let factory = null
+    let factoryData = null
+    if (!isDeployed) {
+      factory = this._config.factoryAddress
+      const factoryInterface = new Interface(['function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)'])
+      const mldsaPublicKeyHex = '0x' + Buffer.from(this._mldsaPublicKey).toString('hex')
+      factoryData = factoryInterface.encodeFunctionData('createWallet', [mldsaPublicKeyHex, this._ecdsaOwner])
+    }
+    
+    // Encode callData for execute function
+    let callData
+    if (txs.length === 1) {
+      const wallet = new Interface(['function execute(address target, uint256 value, bytes calldata data) external'])
+      callData = wallet.encodeFunctionData('execute', [txs[0].to, txs[0].value || 0, txs[0].data || '0x'])
+    } else {
+      // For multiple transactions, use executeBatch
+      const wallet = new Interface([
+        'struct Call { address target; uint256 value; bytes data; }',
+        'function executeBatch(Call[] calldata calls) external'
+      ])
+      const calls = txs.map(tx => ({
+        target: tx.to,
+        value: tx.value || 0,
+        data: tx.data || '0x'
+      }))
+      callData = wallet.encodeFunctionData('executeBatch', [calls])
+    }
+    
+    // Build UserOp for gas estimation (without signature)
     let userOp = {
       sender: walletAddress,
-      nonce: '0x' + nonce.toString(16),
-      callData: '0x', // Placeholder - bundler estimates based on sender/factory
+      nonce: toBeHex(nonce),
+      callData,
       callGasLimit: '0x0',
       verificationGasLimit: '0x0',
       preVerificationGas: '0x0',
@@ -364,8 +410,8 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     }
     
     if (!isDeployed) {
-      userOp.factory = this._config.factoryAddress
-      userOp.factoryData = '0x' // Minimal data for estimation
+      userOp.factory = factory
+      userOp.factoryData = factoryData
     }
     
     // Query bundler for gas estimates
@@ -396,8 +442,6 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     const totalGas = BigInt(callGasLimit) + BigInt(verificationGasLimit) + BigInt(preVerificationGas)
     const gasCostInWei = totalGas * maxFeePerGas
     
-    // If paymaster is configured, would need to convert to token amount via exchange rate
-    // For now, return ETH cost (similar to how actual payment works without paymaster)
     return gasCostInWei
   }
 }

@@ -354,8 +354,11 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     // Bundler requires at least 139160 for deployed wallets
     const preVerificationGas = isDeployed ? 150000 : 500000
     
-    const verificationGasLimit = isDeployed ? 196608 : 2097152
-    const callGasLimit = 196608
+    // Increased verificationGasLimit for QSSN wallet deployment (was 2097152)
+    const verificationGasLimit = isDeployed ? 196608 : 3000000
+    // Increased callGasLimit to support contract deployments (was 196608)
+    // Factory deployments need ~800k+ gas. Use gasLimit from first tx if provided.
+    const callGasLimit = txs[0]?.gasLimit || 1000000
     
     // Build UserOperation in v0.9 unpacked format (for bundler RPC)
     // The bundler expects unpacked fields, not packed format
