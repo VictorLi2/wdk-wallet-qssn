@@ -77,8 +77,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     /** @private */
     this._mldsaAccount = mldsaAccount
     
-    /** @private - For raw ECDSA signing without Ethereum Signed Message prefix */
-    // Derive the same wallet as ownerAccount for raw signing
+    /** @private - Derive the same wallet for raw ECDSA signing without Ethereum Signed Message prefix */
     const fullPath = `m/44'/60'/${path}`
     this._ecdsaWallet = typeof ecdsaSeed === 'string'
       ? ethers.Wallet.fromPhrase(ecdsaSeed).derivePath(fullPath)

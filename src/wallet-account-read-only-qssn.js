@@ -185,7 +185,7 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 
   /**
    * Quotes the costs of a send transaction operation.
-   * Note: Uses bundler's gas estimation for accurate quotes.
+   * Note: Uses bundler's manual gas estimation for accurate quotes.
    *
    * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
    * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
@@ -194,36 +194,17 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
   async quoteSendTransaction (tx, config) {
     const { paymasterToken } = config ?? this._config
 
-    // TEMP: Skip gas estimation entirely until state overrides are fixed
-    // Gas estimation with CallGasEstimationProxy doesn't properly handle operator validation
-    console.log('[QSSN SDK] Skipping gas estimation, using conservative fallback')
-    const provider = await this._getProvider()
-    const feeData = await provider.getFeeData()
-    const estimatedGas = 500000n // Conservative fallback for UserWallet transactions
-    const fee = estimatedGas * (feeData.maxFeePerGas || 1000000000n)
-    console.log('[QSSN SDK] Using fallback fee:', fee)
-    return { fee }
-
-    /* Original gas estimation code - disabled until state overrides work
     try {
-      // Build a UserOp to get gas estimates from bundler
-      console.log('[QSSN SDK] Calling gas estimation with real callData...')
+      // Build a UserOp to get gas estimates from bundler using manual estimation
+      console.log('[QSSN SDK] Calling manual gas estimation with real callData...')
       const fee = await this._estimateUserOperationGas([tx].flat(), paymasterToken)
-      console.log('[QSSN SDK] Gas estimation succeeded, fee:', fee)
+      console.log('[QSSN SDK] Manual gas estimation succeeded, fee:', fee)
       return { fee }
     } catch (error) {
-      console.error('[QSSN SDK] Gas estimation FAILED:', error.message)
-      
-      // For now, always use fallback since gas estimation with state overrides is complex
-      // TODO: Fix state overrides for proper validation
-      const provider = await this._getProvider()
-      const feeData = await provider.getFeeData()
-      const estimatedGas = 300000n // Conservative fallback for UserWallet transactions
-      const fee = estimatedGas * (feeData.maxFeePerGas || 1000000000n)
-      console.log('[QSSN SDK] Using fallback fee (gas estimation not reliable yet):', fee)
-      return { fee }
+      // Block ALL estimation failures - can't submit without proper gas estimates
+      console.error('[QSSN SDK] Gas estimation failed - blocking submission:', error.message)
+      throw error
     }
-    */
   }
 
   /**
@@ -414,14 +395,14 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
       userOp.factoryData = factoryData
     }
     
-    // Query bundler for gas estimates
+    // Query bundler for gas estimates using manual estimation (works with operator validation)
     const response = await fetch(this._config.bundlerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 1,
-        method: 'eth_estimateUserOperationGas',
+        method: 'eth_estimateUserOperationGasManual', // Use manual estimation without CallGasEstimationProxy
         params: [userOp, this._config.entryPointAddress]
       })
     })
@@ -429,7 +410,8 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     const result = await response.json()
     
     if (result.error) {
-      throw new Error(`Bundler estimation failed: ${result.error.message}`)
+      // Pass through the bundler error message directly (already meaningful)
+      throw new Error(result.error.message)
     }
     
     // Extract gas estimates from bundler response
