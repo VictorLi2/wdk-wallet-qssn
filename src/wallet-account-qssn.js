@@ -375,21 +375,20 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 		// Fallback defaults if no estimates provided
 		const preVerificationGas = gasLimits?.preVerificationGas || BigInt(isDeployed ? 150000 : 500000);
 
-		// For undeployed wallets, verification gas can be high - use higher value
-		// Bundler often underestimates factory deployment gas (estimates ~23k, needs ~1M)
-		let verificationGasLimit;
-		if (gasLimits?.verificationGasLimit) {
-			// If wallet not deployed and estimate seems low, boost it (factory deployment costs)
-			verificationGasLimit =
-				!isDeployed && gasLimits.verificationGasLimit < 1000000n
-					? BigInt(3000000) // Use high limit for initial deployment via factory
-					: gasLimits.verificationGasLimit;
-		} else {
-			verificationGasLimit = BigInt(isDeployed ? 196608 : 3000000);
+		// For undeployed wallets, add factory deployment overhead
+		// Bundler underestimates factory deployment cost (estimates ~23k, but deployment needs ~2M+)
+		let verificationGasLimit = gasLimits?.verificationGasLimit || BigInt(isDeployed ? 196608 : 1000000);
+		if (!isDeployed) {
+			// Add deployment overhead: factory.createAccount() + constructor + storage initialization
+			verificationGasLimit = verificationGasLimit + BigInt(2000000);
 		}
 
 		// Use tx.gasLimit hint if it's higher than estimation (protects against underestimation)
-		const estimatedCallGas = gasLimits?.callGasLimit || BigInt(1000000);
+		// For undeployed wallets, add overhead for cold storage access costs
+		let estimatedCallGas = gasLimits?.callGasLimit || BigInt(1000000);
+		if (!isDeployed) {
+			estimatedCallGas = estimatedCallGas + BigInt(75000); // Add cold storage overhead for first tx
+		}
 		const callGasLimit = txGasHint && txGasHint > estimatedCallGas ? txGasHint : estimatedCallGas;
 
 		// Build UserOperation in v0.9 unpacked format (for bundler RPC)
