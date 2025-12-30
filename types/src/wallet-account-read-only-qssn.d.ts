@@ -48,7 +48,7 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     getPaymasterTokenBalance(): Promise<bigint>;
     /**
      * Quotes the costs of a send transaction operation.
-     * Note: Uses bundler's gas estimation for accurate quotes.
+     * Note: Uses bundler's manual gas estimation for accurate quotes.
      *
      * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
      * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.

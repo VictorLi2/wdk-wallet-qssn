@@ -191,13 +191,16 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
   async sendTransaction (tx, config) {
     const { paymasterToken } = config ?? this._config
 
-    const { fee } = await this.quoteSendTransaction(tx, config)
+    const { fee, gasLimits } = await this.quoteSendTransaction(tx, config)
 
     // If paymaster is configured, pass token approval options
-    const options = paymasterToken ? {
-      paymasterTokenAddress: paymasterToken.address,
-      amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
-    } : undefined
+    const options = {
+      gasLimits, // Always include gas limits from estimation
+      ...(paymasterToken && {
+        paymasterTokenAddress: paymasterToken.address,
+        amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
+      })
+    }
 
     const hash = await this._sendUserOperation([tx].flat(), options)
 
@@ -216,17 +219,20 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
     const tx = await WalletAccountEvm._getTransferTransaction(options)
 
-    const { fee } = await this.quoteSendTransaction(tx, config)
+    const { fee, gasLimits } = await this.quoteSendTransaction(tx, config)
 
     if (transferMaxFee !== undefined && fee >= transferMaxFee) {
       throw new Error('Exceeded maximum fee cost for transfer operation.')
     }
 
     // If paymaster is configured, pass token approval options
-    const txOptions = paymasterToken ? {
-      paymasterTokenAddress: paymasterToken.address,
-      amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
-    } : undefined
+    const txOptions = {
+      gasLimits, // Always include gas limits from estimation
+      ...(paymasterToken && {
+        paymasterTokenAddress: paymasterToken.address,
+        amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
+      })
+    }
 
     const hash = await this._sendUserOperation([tx], txOptions)
 
@@ -305,7 +311,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
   }
 
   /** @private */
-  async _buildUserOp (txs, signature) {
+  async _buildUserOp (txs, signature, options) {
     const walletAddress = await this.getAddress()
     const provider = await this._getProvider()
     const entryPoint = new Contract(this._config.entryPointAddress, ['function getNonce(address sender, uint192 key) view returns (uint256)'], provider)
@@ -349,15 +355,30 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
     // Get gas estimates
     const feeData = await provider.getFeeData()
     
-    // Calculate preVerificationGas based on UserOp size
-    // Bundler requires at least 139160 for deployed wallets
-    const preVerificationGas = isDeployed ? 150000 : 500000
+    // Use gas limits from estimation if provided, otherwise use defaults
+    const gasLimits = options?.gasLimits
     
-    // Increased verificationGasLimit for QSSN wallet deployment (was 2097152)
-    const verificationGasLimit = isDeployed ? 196608 : 3000000
-    // Increased callGasLimit to support contract deployments (was 196608)
-    // Factory deployments need ~800k+ gas. Use gasLimit from first tx if provided.
-    const callGasLimit = txs[0]?.gasLimit || 1000000
+    // Allow tx.gasLimit to override callGasLimit (for complex operations like factory deployments)
+    const txGasHint = txs[0]?.gasLimit ? BigInt(txs[0].gasLimit) : null
+    
+    // Fallback defaults if no estimates provided
+    const preVerificationGas = gasLimits?.preVerificationGas || BigInt(isDeployed ? 150000 : 500000)
+    
+    // For undeployed wallets, verification gas can be high - use higher value
+    // Bundler often underestimates factory deployment gas (estimates ~23k, needs ~1M)
+    let verificationGasLimit
+    if (gasLimits?.verificationGasLimit) {
+      // If wallet not deployed and estimate seems low, boost it (factory deployment costs)
+      verificationGasLimit = !isDeployed && gasLimits.verificationGasLimit < 1000000n
+        ? BigInt(3000000)  // Use high limit for initial deployment via factory
+        : gasLimits.verificationGasLimit
+    } else {
+      verificationGasLimit = BigInt(isDeployed ? 196608 : 3000000)
+    }
+    
+    // Use tx.gasLimit hint if it's higher than estimation (protects against underestimation)
+    const estimatedCallGas = gasLimits?.callGasLimit || BigInt(1000000)
+    const callGasLimit = txGasHint && txGasHint > estimatedCallGas ? txGasHint : estimatedCallGas
     
     // Build UserOperation in v0.9 unpacked format (for bundler RPC)
     // The bundler expects unpacked fields, not packed format
@@ -451,8 +472,8 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
   /** @private */
   async _sendUserOperation (txs, options) {
-    // Build UserOp without signature
-    const userOp = await this._buildUserOp(txs, '0x')
+    // Build UserOp without signature, passing options for gas limits
+    const userOp = await this._buildUserOp(txs, '0x', options)
     
     // Get UserOp hash for signing
     const userOpHash = this._getUserOpHash(userOp)

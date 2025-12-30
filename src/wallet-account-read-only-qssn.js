@@ -197,9 +197,9 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     try {
       // Build a UserOp to get gas estimates from bundler using manual estimation
       console.log('[QSSN SDK] Calling manual gas estimation with real callData...')
-      const fee = await this._estimateUserOperationGas([tx].flat(), paymasterToken)
+      const { fee, gasLimits } = await this._estimateUserOperationGas([tx].flat(), paymasterToken)
       console.log('[QSSN SDK] Manual gas estimation succeeded, fee:', fee)
-      return { fee }
+      return { fee, gasLimits }
     } catch (error) {
       // Block ALL estimation failures - can't submit without proper gas estimates
       console.error('[QSSN SDK] Gas estimation failed - blocking submission:', error.message)
@@ -424,6 +424,13 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     const totalGas = BigInt(callGasLimit) + BigInt(verificationGasLimit) + BigInt(preVerificationGas)
     const gasCostInWei = totalGas * maxFeePerGas
     
-    return gasCostInWei
+    return {
+      fee: gasCostInWei,
+      gasLimits: {
+        callGasLimit: BigInt(callGasLimit),
+        verificationGasLimit: BigInt(verificationGasLimit),
+        preVerificationGas: BigInt(preVerificationGas)
+      }
+    }
   }
 }
