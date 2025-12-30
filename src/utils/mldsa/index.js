@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-'use strict'
+"use strict";
 
-export { MLDSAKeyDerivation } from './mldsa-key-derivation.js'
-export { MLDSASigner } from './mldsa-signer.js'
+export { MLDSAKeyDerivation } from "./mldsa-key-derivation.js";
+export { MLDSASigner } from "./mldsa-signer.js";
