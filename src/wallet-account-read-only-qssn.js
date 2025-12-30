@@ -192,18 +192,18 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 	async quoteSendTransaction(tx, config) {
 		const { paymasterToken } = config ?? this._config;
 
-    try {
-      // Build a UserOp to get gas estimates from bundler using manual estimation
-      console.log('[QSSN SDK] Calling manual gas estimation with real callData...')
-      const { fee, gasLimits } = await this._estimateUserOperationGas([tx].flat(), paymasterToken)
-      console.log('[QSSN SDK] Manual gas estimation succeeded, fee:', fee)
-      return { fee, gasLimits }
-    } catch (error) {
-      // Block ALL estimation failures - can't submit without proper gas estimates
-      console.error('[QSSN SDK] Gas estimation failed - blocking submission:', error.message)
-      throw error
-    }
-  }
+		try {
+			// Build a UserOp to get gas estimates from bundler using manual estimation
+			console.log("[QSSN SDK] Calling manual gas estimation with real callData...");
+			const { fee, gasLimits } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
+			console.log("[QSSN SDK] Manual gas estimation succeeded, fee:", fee);
+			return { fee, gasLimits };
+		} catch (error) {
+			// Block ALL estimation failures - can't submit without proper gas estimates
+			console.error("[QSSN SDK] Gas estimation failed - blocking submission:", error.message);
+			throw error;
+		}
+	}
 
 	/**
 	 * Quotes the costs of a transfer operation.
@@ -330,106 +330,114 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 		return evmReadOnlyAccount;
 	}
 
-  /**
-   * Estimates gas cost for a UserOperation by querying the bundler.
-   * 
-   * @private
-   * @param {EvmTransaction[]} txs - Array of transactions.
-   * @param {Object} [paymasterToken] - Optional paymaster token config.
-   * @returns {Promise<bigint>} Estimated gas cost in wei (or paymaster token if configured).
-   */
-  async _estimateUserOperationGas (txs, paymasterToken) {
-    const walletAddress = await this.getAddress()
-    const provider = await this._getProvider()
-    const entryPoint = new Contract(this._config.entryPointAddress, ['function getNonce(address sender, uint192 key) view returns (uint256)'], provider)
-    
-    const nonce = await entryPoint.getNonce(walletAddress, 0)
-    const code = await provider.getCode(walletAddress)
-    const isDeployed = code !== '0x'
-    
-    // Create factory and factoryData if not deployed
-    let factory = null
-    let factoryData = null
-    if (!isDeployed) {
-      factory = this._config.factoryAddress
-      const factoryInterface = new Interface(['function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)'])
-      const mldsaPublicKeyHex = '0x' + Buffer.from(this._mldsaPublicKey).toString('hex')
-      factoryData = factoryInterface.encodeFunctionData('createWallet', [mldsaPublicKeyHex, this._ecdsaOwner])
-    }
-    
-    // Encode callData for execute function
-    let callData
-    if (txs.length === 1) {
-      const wallet = new Interface(['function execute(address target, uint256 value, bytes calldata data) external'])
-      callData = wallet.encodeFunctionData('execute', [txs[0].to, txs[0].value || 0, txs[0].data || '0x'])
-    } else {
-      // For multiple transactions, use executeBatch
-      const wallet = new Interface([
-        'struct Call { address target; uint256 value; bytes data; }',
-        'function executeBatch(Call[] calldata calls) external'
-      ])
-      const calls = txs.map(tx => ({
-        target: tx.to,
-        value: tx.value || 0,
-        data: tx.data || '0x'
-      }))
-      callData = wallet.encodeFunctionData('executeBatch', [calls])
-    }
-    
-    // Build UserOp for gas estimation (without signature)
-    let userOp = {
-      sender: walletAddress,
-      nonce: toBeHex(nonce),
-      callData,
-      callGasLimit: '0x0',
-      verificationGasLimit: '0x0',
-      preVerificationGas: '0x0',
-      maxFeePerGas: '0x0',
-      maxPriorityFeePerGas: '0x0',
-      signature: '0x'
-    }
-    
-    if (!isDeployed) {
-      userOp.factory = factory
-      userOp.factoryData = factoryData
-    }
-    
-    // Query bundler for gas estimates using manual estimation (works with operator validation)
-    const response = await fetch(this._config.bundlerUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_estimateUserOperationGasManual', // Use manual estimation without CallGasEstimationProxy
-        params: [userOp, this._config.entryPointAddress]
-      })
-    })
-    
-    const result = await response.json()
-    
-    if (result.error) {
-      // Pass through the bundler error message directly (already meaningful)
-      throw new Error(result.error.message)
-    }
-    
-    // Extract gas estimates from bundler response
-    const { callGasLimit, verificationGasLimit, preVerificationGas } = result.result
-    
-    const feeData = await provider.getFeeData()
-    const maxFeePerGas = feeData.maxFeePerGas || 1000000000n
-    
-    // Calculate total gas cost
-    const totalGas = BigInt(callGasLimit) + BigInt(verificationGasLimit) + BigInt(preVerificationGas)
-    const gasCostInWei = totalGas * maxFeePerGas
-    
-    return {
-      fee: gasCostInWei,
-      gasLimits: {
-        callGasLimit: BigInt(callGasLimit),
-        verificationGasLimit: BigInt(verificationGasLimit),
-        preVerificationGas: BigInt(preVerificationGas)
-      }
-    }
-  }
+	/**
+	 * Estimates gas cost for a UserOperation by querying the bundler.
+	 *
+	 * @private
+	 * @param {EvmTransaction[]} txs - Array of transactions.
+	 * @param {Object} [paymasterToken] - Optional paymaster token config.
+	 * @returns {Promise<bigint>} Estimated gas cost in wei (or paymaster token if configured).
+	 */
+	async _estimateUserOperationGas(txs, paymasterToken) {
+		const walletAddress = await this.getAddress();
+		const provider = await this._getProvider();
+		const entryPoint = new Contract(
+			this._config.entryPointAddress,
+			["function getNonce(address sender, uint192 key) view returns (uint256)"],
+			provider,
+		);
+
+		const nonce = await entryPoint.getNonce(walletAddress, 0);
+		const code = await provider.getCode(walletAddress);
+		const isDeployed = code !== "0x";
+
+		// Create factory and factoryData if not deployed
+		let factory = null;
+		let factoryData = null;
+		if (!isDeployed) {
+			factory = this._config.factoryAddress;
+			const factoryInterface = new Interface([
+				"function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)",
+			]);
+			const mldsaPublicKeyHex = "0x" + Buffer.from(this._mldsaPublicKey).toString("hex");
+			factoryData = factoryInterface.encodeFunctionData("createWallet", [mldsaPublicKeyHex, this._ecdsaOwner]);
+		}
+
+		// Encode callData for execute function
+		let callData;
+		if (txs.length === 1) {
+			const wallet = new Interface([
+				"function execute(address target, uint256 value, bytes calldata data) external",
+			]);
+			callData = wallet.encodeFunctionData("execute", [txs[0].to, txs[0].value || 0, txs[0].data || "0x"]);
+		} else {
+			// For multiple transactions, use executeBatch
+			const wallet = new Interface([
+				"struct Call { address target; uint256 value; bytes data; }",
+				"function executeBatch(Call[] calldata calls) external",
+			]);
+			const calls = txs.map((tx) => ({
+				target: tx.to,
+				value: tx.value || 0,
+				data: tx.data || "0x",
+			}));
+			callData = wallet.encodeFunctionData("executeBatch", [calls]);
+		}
+
+		// Build UserOp for gas estimation (without signature)
+		let userOp = {
+			sender: walletAddress,
+			nonce: toBeHex(nonce),
+			callData,
+			callGasLimit: "0x0",
+			verificationGasLimit: "0x0",
+			preVerificationGas: "0x0",
+			maxFeePerGas: "0x0",
+			maxPriorityFeePerGas: "0x0",
+			signature: "0x",
+		};
+
+		if (!isDeployed) {
+			userOp.factory = factory;
+			userOp.factoryData = factoryData;
+		}
+
+		// Query bundler for gas estimates using manual estimation (works with operator validation)
+		const response = await fetch(this._config.bundlerUrl, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				jsonrpc: "2.0",
+				id: 1,
+				method: "eth_estimateUserOperationGasManual", // Use manual estimation without CallGasEstimationProxy
+				params: [userOp, this._config.entryPointAddress],
+			}),
+		});
+
+		const result = await response.json();
+
+		if (result.error) {
+			// Pass through the bundler error message directly (already meaningful)
+			throw new Error(result.error.message);
+		}
+
+		// Extract gas estimates from bundler response
+		const { callGasLimit, verificationGasLimit, preVerificationGas } = result.result;
+
+		const feeData = await provider.getFeeData();
+		const maxFeePerGas = feeData.maxFeePerGas || 1000000000n;
+
+		// Calculate total gas cost
+		const totalGas = BigInt(callGasLimit) + BigInt(verificationGasLimit) + BigInt(preVerificationGas);
+		const gasCostInWei = totalGas * maxFeePerGas;
+
+		return {
+			fee: gasCostInWei,
+			gasLimits: {
+				callGasLimit: BigInt(callGasLimit),
+				verificationGasLimit: BigInt(verificationGasLimit),
+				preVerificationGas: BigInt(preVerificationGas),
+			},
+		};
+	}
 }

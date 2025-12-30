@@ -192,16 +192,16 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 	async sendTransaction(tx, config) {
 		const { paymasterToken } = config ?? this._config;
 
-    const { fee, gasLimits } = await this.quoteSendTransaction(tx, config)
+		const { fee, gasLimits } = await this.quoteSendTransaction(tx, config);
 
-    // If paymaster is configured, pass token approval options
-    const options = {
-      gasLimits, // Always include gas limits from estimation
-      ...(paymasterToken && {
-        paymasterTokenAddress: paymasterToken.address,
-        amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
-      })
-    }
+		// If paymaster is configured, pass token approval options
+		const options = {
+			gasLimits, // Always include gas limits from estimation
+			...(paymasterToken && {
+				paymasterTokenAddress: paymasterToken.address,
+				amountToApprove: BigInt((fee * FEE_TOLERANCE_COEFFICIENT) / 100n),
+			}),
+		};
 
 		const hash = await this._sendUserOperation([tx].flat(), options);
 
@@ -220,20 +220,20 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
 		const tx = await WalletAccountEvm._getTransferTransaction(options);
 
-    const { fee, gasLimits } = await this.quoteSendTransaction(tx, config)
+		const { fee, gasLimits } = await this.quoteSendTransaction(tx, config);
 
 		if (transferMaxFee !== undefined && fee >= transferMaxFee) {
 			throw new Error("Exceeded maximum fee cost for transfer operation.");
 		}
 
-    // If paymaster is configured, pass token approval options
-    const txOptions = {
-      gasLimits, // Always include gas limits from estimation
-      ...(paymasterToken && {
-        paymasterTokenAddress: paymasterToken.address,
-        amountToApprove: BigInt(fee * FEE_TOLERANCE_COEFFICIENT / 100n)
-      })
-    }
+		// If paymaster is configured, pass token approval options
+		const txOptions = {
+			gasLimits, // Always include gas limits from estimation
+			...(paymasterToken && {
+				paymasterTokenAddress: paymasterToken.address,
+				amountToApprove: BigInt((fee * FEE_TOLERANCE_COEFFICIENT) / 100n),
+			}),
+		};
 
 		const hash = await this._sendUserOperation([tx], txOptions);
 
@@ -310,98 +310,110 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 		return this._provider;
 	}
 
-  /** @private */
-  async _buildUserOp (txs, signature, options) {
-    const walletAddress = await this.getAddress()
-    const provider = await this._getProvider()
-    const entryPoint = new Contract(this._config.entryPointAddress, ['function getNonce(address sender, uint192 key) view returns (uint256)'], provider)
-    
-    // Get nonce
-    const nonce = await entryPoint.getNonce(walletAddress, 0)
-    
-    // Check if wallet is deployed
-    const code = await provider.getCode(walletAddress)
-    const isDeployed = code !== '0x'
-    
-    // Create factory and factoryData if not deployed (v0.7 format)
-    let factory = null
-    let factoryData = null
-    if (!isDeployed) {
-      factory = this._config.factoryAddress
-      const factoryInterface = new ethers.Interface(['function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)'])
-      const mldsaPublicKeyHex = this._mldsaAccount.publicKeyHex
-      factoryData = factoryInterface.encodeFunctionData('createWallet', [mldsaPublicKeyHex, this._ownerAccount._address])
-    }
-    
-    // Encode callData for execute function
-    let callData
-    if (txs.length === 1) {
-      const wallet = new ethers.Interface(['function execute(address target, uint256 value, bytes calldata data) external'])
-      callData = wallet.encodeFunctionData('execute', [txs[0].to, txs[0].value || 0, txs[0].data || '0x'])
-    } else {
-      // For multiple transactions, use executeBatch
-      const wallet = new ethers.Interface([
-        'struct Call { address target; uint256 value; bytes data; }',
-        'function executeBatch(Call[] calldata calls) external'
-      ])
-      const calls = txs.map(tx => ({
-        target: tx.to,
-        value: tx.value || 0,
-        data: tx.data || '0x'
-      }))
-      callData = wallet.encodeFunctionData('executeBatch', [calls])
-    }
-    
-    // Get gas estimates
-    const feeData = await provider.getFeeData()
-    
-    // Use gas limits from estimation if provided, otherwise use defaults
-    const gasLimits = options?.gasLimits
-    
-    // Allow tx.gasLimit to override callGasLimit (for complex operations like factory deployments)
-    const txGasHint = txs[0]?.gasLimit ? BigInt(txs[0].gasLimit) : null
-    
-    // Fallback defaults if no estimates provided
-    const preVerificationGas = gasLimits?.preVerificationGas || BigInt(isDeployed ? 150000 : 500000)
-    
-    // For undeployed wallets, verification gas can be high - use higher value
-    // Bundler often underestimates factory deployment gas (estimates ~23k, needs ~1M)
-    let verificationGasLimit
-    if (gasLimits?.verificationGasLimit) {
-      // If wallet not deployed and estimate seems low, boost it (factory deployment costs)
-      verificationGasLimit = !isDeployed && gasLimits.verificationGasLimit < 1000000n
-        ? BigInt(3000000)  // Use high limit for initial deployment via factory
-        : gasLimits.verificationGasLimit
-    } else {
-      verificationGasLimit = BigInt(isDeployed ? 196608 : 3000000)
-    }
-    
-    // Use tx.gasLimit hint if it's higher than estimation (protects against underestimation)
-    const estimatedCallGas = gasLimits?.callGasLimit || BigInt(1000000)
-    const callGasLimit = txGasHint && txGasHint > estimatedCallGas ? txGasHint : estimatedCallGas
-    
-    // Build UserOperation in v0.9 unpacked format (for bundler RPC)
-    // The bundler expects unpacked fields, not packed format
-    const userOp = {
-      sender: walletAddress,
-      nonce: ethers.toBeHex(nonce),
-      callData,
-      callGasLimit: ethers.toBeHex(BigInt(callGasLimit)),
-      verificationGasLimit: ethers.toBeHex(BigInt(verificationGasLimit)),
-      preVerificationGas: ethers.toBeHex(BigInt(preVerificationGas)),
-      maxFeePerGas: ethers.toBeHex(feeData.maxFeePerGas || 1000000000n),
-      maxPriorityFeePerGas: ethers.toBeHex(feeData.maxPriorityFeePerGas || 1000000000n),
-      signature
-    }
-    
-    // Add factory and factoryData if not deployed
-    if (!isDeployed) {
-      userOp.factory = factory
-      userOp.factoryData = factoryData
-    }
-    
-    return userOp
-  }
+	/** @private */
+	async _buildUserOp(txs, signature, options) {
+		const walletAddress = await this.getAddress();
+		const provider = await this._getProvider();
+		const entryPoint = new Contract(
+			this._config.entryPointAddress,
+			["function getNonce(address sender, uint192 key) view returns (uint256)"],
+			provider,
+		);
+
+		// Get nonce
+		const nonce = await entryPoint.getNonce(walletAddress, 0);
+
+		// Check if wallet is deployed
+		const code = await provider.getCode(walletAddress);
+		const isDeployed = code !== "0x";
+
+		// Create factory and factoryData if not deployed (v0.7 format)
+		let factory = null;
+		let factoryData = null;
+		if (!isDeployed) {
+			factory = this._config.factoryAddress;
+			const factoryInterface = new ethers.Interface([
+				"function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)",
+			]);
+			const mldsaPublicKeyHex = this._mldsaAccount.publicKeyHex;
+			factoryData = factoryInterface.encodeFunctionData("createWallet", [
+				mldsaPublicKeyHex,
+				this._ownerAccount._address,
+			]);
+		}
+
+		// Encode callData for execute function
+		let callData;
+		if (txs.length === 1) {
+			const wallet = new ethers.Interface([
+				"function execute(address target, uint256 value, bytes calldata data) external",
+			]);
+			callData = wallet.encodeFunctionData("execute", [txs[0].to, txs[0].value || 0, txs[0].data || "0x"]);
+		} else {
+			// For multiple transactions, use executeBatch
+			const wallet = new ethers.Interface([
+				"struct Call { address target; uint256 value; bytes data; }",
+				"function executeBatch(Call[] calldata calls) external",
+			]);
+			const calls = txs.map((tx) => ({
+				target: tx.to,
+				value: tx.value || 0,
+				data: tx.data || "0x",
+			}));
+			callData = wallet.encodeFunctionData("executeBatch", [calls]);
+		}
+
+		// Get gas estimates
+		const feeData = await provider.getFeeData();
+
+		// Use gas limits from estimation if provided, otherwise use defaults
+		const gasLimits = options?.gasLimits;
+
+		// Allow tx.gasLimit to override callGasLimit (for complex operations like factory deployments)
+		const txGasHint = txs[0]?.gasLimit ? BigInt(txs[0].gasLimit) : null;
+
+		// Fallback defaults if no estimates provided
+		const preVerificationGas = gasLimits?.preVerificationGas || BigInt(isDeployed ? 150000 : 500000);
+
+		// For undeployed wallets, verification gas can be high - use higher value
+		// Bundler often underestimates factory deployment gas (estimates ~23k, needs ~1M)
+		let verificationGasLimit;
+		if (gasLimits?.verificationGasLimit) {
+			// If wallet not deployed and estimate seems low, boost it (factory deployment costs)
+			verificationGasLimit =
+				!isDeployed && gasLimits.verificationGasLimit < 1000000n
+					? BigInt(3000000) // Use high limit for initial deployment via factory
+					: gasLimits.verificationGasLimit;
+		} else {
+			verificationGasLimit = BigInt(isDeployed ? 196608 : 3000000);
+		}
+
+		// Use tx.gasLimit hint if it's higher than estimation (protects against underestimation)
+		const estimatedCallGas = gasLimits?.callGasLimit || BigInt(1000000);
+		const callGasLimit = txGasHint && txGasHint > estimatedCallGas ? txGasHint : estimatedCallGas;
+
+		// Build UserOperation in v0.9 unpacked format (for bundler RPC)
+		// The bundler expects unpacked fields, not packed format
+		const userOp = {
+			sender: walletAddress,
+			nonce: ethers.toBeHex(nonce),
+			callData,
+			callGasLimit: ethers.toBeHex(BigInt(callGasLimit)),
+			verificationGasLimit: ethers.toBeHex(BigInt(verificationGasLimit)),
+			preVerificationGas: ethers.toBeHex(BigInt(preVerificationGas)),
+			maxFeePerGas: ethers.toBeHex(feeData.maxFeePerGas || 1000000000n),
+			maxPriorityFeePerGas: ethers.toBeHex(feeData.maxPriorityFeePerGas || 1000000000n),
+			signature,
+		};
+
+		// Add factory and factoryData if not deployed
+		if (!isDeployed) {
+			userOp.factory = factory;
+			userOp.factoryData = factoryData;
+		}
+
+		return userOp;
+	}
 
 	/** @private */
 	_getUserOpHash(userOp) {
@@ -462,74 +474,74 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 		return ethers.keccak256(ethers.concat([ethers.toUtf8Bytes("\x19\x01"), domainSeparator, structHash]));
 	}
 
-  /** @private */
-  async _sendUserOperation (txs, options) {
-    // Build UserOp without signature, passing options for gas limits
-    const userOp = await this._buildUserOp(txs, '0x', options)
-    
-    // Get UserOp hash for signing
-    const userOpHash = this._getUserOpHash(userOp)
-    
-    // Sign with ECDSA using raw signing (no Ethereum Signed Message prefix)
-    // userOpHash is already a 32-byte hash, use SigningKey.sign directly
-    const ecdsaSig = this._ecdsaWallet.signingKey.sign(userOpHash)
-    const sig = ethers.Signature.from(ecdsaSig)
-    
-    // OpenZeppelin expects r (32 bytes) + s (32 bytes) + v (1 byte) = 65 bytes total
-    // Construct manually to ensure correct format
-    const ecdsaSignature = ethers.concat([
-      ethers.zeroPadValue(sig.r, 32),
-      ethers.zeroPadValue(sig.s, 32),
-      ethers.toBeArray(sig.v)
-    ])
-    
-    // Sign with ML-DSA (returns hex string)
-    const mldsaSignatureHex = await this._mldsaAccount.sign(ethers.getBytes(userOpHash))
-    const mldsaPublicKeyHex = this._mldsaAccount.publicKeyHex
-    
-    // Pack QSSN signature: abi.encode(ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner)
-    const abiCoder = new AbiCoder()
-    userOp.signature = abiCoder.encode(
-      ['bytes', 'bytes', 'bytes', 'address'],
-      [ecdsaSignature, mldsaSignatureHex, mldsaPublicKeyHex, this._ownerAccount._address]
-    )
-    
-    // Send v0.9 PackedUserOperation to bundler
-    const bundlerParams = [userOp, this._config.entryPointAddress]
-    
-    // Add paymaster options if configured and provided (for future gas sponsorship)
-    // Options contain paymasterTokenAddress and amountToApprove from sendTransaction/transfer
-    if (options && this._config.paymasterUrl && this._config.paymasterAddress) {
-      bundlerParams.push({
-        paymasterUrl: this._config.paymasterUrl,
-        paymasterAddress: this._config.paymasterAddress,
-        paymasterTokenAddress: options.paymasterTokenAddress,
-        amountToApprove: options.amountToApprove
-      })
-    }
-    
-    // Submit to bundler
-    const response = await fetch(this._config.bundlerUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_sendUserOperation',
-        params: bundlerParams
-      })
-    })
-    
-    const result = await response.json()
-    
-    if (result.error) {
-      // Check for AA50 error (insufficient funds to repay paymaster)
-      if (result.error.message && result.error.message.includes('AA50')) {
-        throw new Error('Not enough funds on the wallet account to repay the paymaster.')
-      }
-      throw new Error(`Bundler error: ${result.error.message}`)
-    }
-    
-    return result.result // UserOp hash
-  }
+	/** @private */
+	async _sendUserOperation(txs, options) {
+		// Build UserOp without signature, passing options for gas limits
+		const userOp = await this._buildUserOp(txs, "0x", options);
+
+		// Get UserOp hash for signing
+		const userOpHash = this._getUserOpHash(userOp);
+
+		// Sign with ECDSA using raw signing (no Ethereum Signed Message prefix)
+		// userOpHash is already a 32-byte hash, use SigningKey.sign directly
+		const ecdsaSig = this._ecdsaWallet.signingKey.sign(userOpHash);
+		const sig = ethers.Signature.from(ecdsaSig);
+
+		// OpenZeppelin expects r (32 bytes) + s (32 bytes) + v (1 byte) = 65 bytes total
+		// Construct manually to ensure correct format
+		const ecdsaSignature = ethers.concat([
+			ethers.zeroPadValue(sig.r, 32),
+			ethers.zeroPadValue(sig.s, 32),
+			ethers.toBeArray(sig.v),
+		]);
+
+		// Sign with ML-DSA (returns hex string)
+		const mldsaSignatureHex = await this._mldsaAccount.sign(ethers.getBytes(userOpHash));
+		const mldsaPublicKeyHex = this._mldsaAccount.publicKeyHex;
+
+		// Pack QSSN signature: abi.encode(ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner)
+		const abiCoder = new AbiCoder();
+		userOp.signature = abiCoder.encode(
+			["bytes", "bytes", "bytes", "address"],
+			[ecdsaSignature, mldsaSignatureHex, mldsaPublicKeyHex, this._ownerAccount._address],
+		);
+
+		// Send v0.9 PackedUserOperation to bundler
+		const bundlerParams = [userOp, this._config.entryPointAddress];
+
+		// Add paymaster options if configured and provided (for future gas sponsorship)
+		// Options contain paymasterTokenAddress and amountToApprove from sendTransaction/transfer
+		if (options && this._config.paymasterUrl && this._config.paymasterAddress) {
+			bundlerParams.push({
+				paymasterUrl: this._config.paymasterUrl,
+				paymasterAddress: this._config.paymasterAddress,
+				paymasterTokenAddress: options.paymasterTokenAddress,
+				amountToApprove: options.amountToApprove,
+			});
+		}
+
+		// Submit to bundler
+		const response = await fetch(this._config.bundlerUrl, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				jsonrpc: "2.0",
+				id: 1,
+				method: "eth_sendUserOperation",
+				params: bundlerParams,
+			}),
+		});
+
+		const result = await response.json();
+
+		if (result.error) {
+			// Check for AA50 error (insufficient funds to repay paymaster)
+			if (result.error.message && result.error.message.includes("AA50")) {
+				throw new Error("Not enough funds on the wallet account to repay the paymaster.");
+			}
+			throw new Error(`Bundler error: ${result.error.message}`);
+		}
+
+		return result.result; // UserOp hash
+	}
 }
