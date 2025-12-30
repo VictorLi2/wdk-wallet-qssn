@@ -11,10 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-'use strict'
+"use strict";
 
-import 'bare-node-runtime/global'
+import "bare-node-runtime/global";
 
-export * from './index.js' with { imports: 'bare-node-runtime/imports' }
+export * from "./index.js" with { imports: "bare-node-runtime/imports" };
 
-export { default } from './index.js' with { imports: 'bare-node-runtime/imports' }
+export { default } from "./index.js" with { imports: "bare-node-runtime/imports" };
