@@ -35,7 +35,9 @@
     "build:types": "tsc",
     "prepare": "npm run build:types",
     "lint": "standard",
-    "lint:fix": "standard --fix"
+    "lint:fix": "standard --fix",
+    "format": "prettier --write \"src/**/*.js\" \"*.js\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"*.js\""
   },
   "dependencies": {
     "@noble/hashes": "1.6.1",
@@ -47,6 +49,7 @@
     "ethers": "6.14.4"
   },
   "devDependencies": {
+    "prettier": "^3.7.4",
     "standard": "17.1.2",
     "typescript": "5.8.3"
   },

@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-'use strict'
+"use strict";
 
-import { WalletAccountReadOnly } from '@tetherto/wdk-wallet'
+import { WalletAccountReadOnly } from "@tetherto/wdk-wallet";
 
-import { WalletAccountReadOnlyEvmJs } from './wallet-account-read-only-evm-js.js'
+import { WalletAccountReadOnlyEvmJs } from "./wallet-account-read-only-evm-js.js";
 
-import { Contract, JsonRpcProvider, BrowserProvider, Interface, toBeHex } from 'ethers'
+import { Contract, JsonRpcProvider, BrowserProvider, Interface, toBeHex } from "ethers";
 
 /** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
 
@@ -59,140 +59,138 @@ import { Contract, JsonRpcProvider, BrowserProvider, Interface, toBeHex } from '
 
 // ABIs for contract interactions
 const FACTORY_ABI = [
-  'function getWalletAddress(bytes calldata mldsaPublicKey, address ecdsaOwner) view returns (address)',
-  'function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)'
-]
+	"function getWalletAddress(bytes calldata mldsaPublicKey, address ecdsaOwner) view returns (address)",
+	"function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)",
+];
 
-const WALLET_ABI = [
-  'function execute(address target, uint256 value, bytes calldata data) external'
-]
+const WALLET_ABI = ["function execute(address target, uint256 value, bytes calldata data) external"];
 
-const ENTRYPOINT_ABI = [
-  'function getNonce(address sender, uint192 key) view returns (uint256)'
-]
+const ENTRYPOINT_ABI = ["function getNonce(address sender, uint192 key) view returns (uint256)"];
 
 export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
-  /**
-   * Creates a new read-only quantum-safe wallet account with ERC-4337 account abstraction.
-   *
-   * @param {string} ecdsaOwner - The ECDSA owner address.
-   * @param {Uint8Array} mldsaPublicKey - The ML-DSA public key.
-   * @param {Omit<QssnWalletConfig, 'transferMaxFee'>} config - The configuration object.
-   */
-  constructor (ecdsaOwner, mldsaPublicKey, config) {
-    super(undefined)
+	/**
+	 * Creates a new read-only quantum-safe wallet account with ERC-4337 account abstraction.
+	 *
+	 * @param {string} ecdsaOwner - The ECDSA owner address.
+	 * @param {Uint8Array} mldsaPublicKey - The ML-DSA public key.
+	 * @param {Omit<QssnWalletConfig, 'transferMaxFee'>} config - The configuration object.
+	 */
+	constructor(ecdsaOwner, mldsaPublicKey, config) {
+		super(undefined);
 
-    /**
-     * The read-only quantum-safe wallet account configuration.
-     *
-     * @protected
-     * @type {Omit<QssnWalletConfig, 'transferMaxFee'>}
-     */
-    this._config = config
+		/**
+		 * The read-only quantum-safe wallet account configuration.
+		 *
+		 * @protected
+		 * @type {Omit<QssnWalletConfig, 'transferMaxFee'>}
+		 */
+		this._config = config;
 
-    /**
-     * The provider instance.
-     *
-     * @protected
-     * @type {JsonRpcProvider | BrowserProvider | undefined}
-     */
-    this._provider = undefined
+		/**
+		 * The provider instance.
+		 *
+		 * @protected
+		 * @type {JsonRpcProvider | BrowserProvider | undefined}
+		 */
+		this._provider = undefined;
 
-    /**
-     * The chain id.
-     *
-     * @protected
-     * @type {bigint | undefined}
-     */
-    this._chainId = undefined
+		/**
+		 * The chain id.
+		 *
+		 * @protected
+		 * @type {bigint | undefined}
+		 */
+		this._chainId = undefined;
 
-    /**
-     * The cached wallet address.
-     *
-     * @protected
-     * @type {string | undefined}
-     */
-    this._walletAddress = undefined
+		/**
+		 * The cached wallet address.
+		 *
+		 * @protected
+		 * @type {string | undefined}
+		 */
+		this._walletAddress = undefined;
 
-    /** @private */
-    this._ecdsaOwner = ecdsaOwner
+		/** @private */
+		this._ecdsaOwner = ecdsaOwner;
 
-    /** @private */
-    this._mldsaPublicKey = mldsaPublicKey
+		/** @private */
+		this._mldsaPublicKey = mldsaPublicKey;
 
-    if (!config.factoryAddress) {
-      throw new Error('factoryAddress is required in config')
-    }
-  }
+		if (!config.factoryAddress) {
+			throw new Error("factoryAddress is required in config");
+		}
+	}
 
-  /**
-   * Returns the account's address (computed from factory).
-   *
-   * @returns {Promise<string>} The account's address.
-   */
-  async getAddress () {
-    if (this._walletAddress) {
-      return this._walletAddress
-    }
+	/**
+	 * Returns the account's address (computed from factory).
+	 *
+	 * @returns {Promise<string>} The account's address.
+	 */
+	async getAddress() {
+		if (this._walletAddress) {
+			return this._walletAddress;
+		}
 
-    const provider = await this._getProvider()
-    const factory = new Contract(this._config.factoryAddress, FACTORY_ABI, provider)
-    
-    const mldsaPublicKeyHex = '0x' + Buffer.from(this._mldsaPublicKey).toString('hex')
-    this._walletAddress = await factory.getWalletAddress(mldsaPublicKeyHex, this._ecdsaOwner)
+		const provider = await this._getProvider();
+		const factory = new Contract(this._config.factoryAddress, FACTORY_ABI, provider);
 
-    return this._walletAddress
-  }
+		const mldsaPublicKeyHex = "0x" + Buffer.from(this._mldsaPublicKey).toString("hex");
+		this._walletAddress = await factory.getWalletAddress(mldsaPublicKeyHex, this._ecdsaOwner);
 
-  /**
-   * Returns the account's eth balance.
-   *
-   * @returns {Promise<bigint>} The eth balance (in weis).
-   */
-  async getBalance () {
-    const evmReadOnlyAccount = await this._getEvmReadOnlyAccount()
+		return this._walletAddress;
+	}
 
-    return await evmReadOnlyAccount.getBalance()
-  }
+	/**
+	 * Returns the account's eth balance.
+	 *
+	 * @returns {Promise<bigint>} The eth balance (in weis).
+	 */
+	async getBalance() {
+		const evmReadOnlyAccount = await this._getEvmReadOnlyAccount();
 
-  /**
-   * Returns the account balance for a specific token.
-   *
-   * @param {string} tokenAddress - The smart contract address of the token.
-   * @returns {Promise<bigint>} The token balance (in base unit).
-   */
-  async getTokenBalance (tokenAddress) {
-    const evmReadOnlyAccount = await this._getEvmReadOnlyAccount()
+		return await evmReadOnlyAccount.getBalance();
+	}
 
-    return await evmReadOnlyAccount.getTokenBalance(tokenAddress)
-  }
+	/**
+	 * Returns the account balance for a specific token.
+	 *
+	 * @param {string} tokenAddress - The smart contract address of the token.
+	 * @returns {Promise<bigint>} The token balance (in base unit).
+	 */
+	async getTokenBalance(tokenAddress) {
+		const evmReadOnlyAccount = await this._getEvmReadOnlyAccount();
 
-  /**
-   * Returns the account's balance for the paymaster token provided in the wallet account configuration.
-   *
-   * @returns {Promise<bigint>} The paymaster token balance (in base unit).
-   * @throws {Error} If no paymaster token is configured.
-   */
-  async getPaymasterTokenBalance () {
-    const { paymasterToken } = this._config
+		return await evmReadOnlyAccount.getTokenBalance(tokenAddress);
+	}
 
-    if (!paymasterToken) {
-      throw new Error('No paymaster token configured. Please provide paymasterToken in the wallet configuration.')
-    }
+	/**
+	 * Returns the account's balance for the paymaster token provided in the wallet account configuration.
+	 *
+	 * @returns {Promise<bigint>} The paymaster token balance (in base unit).
+	 * @throws {Error} If no paymaster token is configured.
+	 */
+	async getPaymasterTokenBalance() {
+		const { paymasterToken } = this._config;
 
-    return await this.getTokenBalance(paymasterToken.address)
-  }
+		if (!paymasterToken) {
+			throw new Error(
+				"No paymaster token configured. Please provide paymasterToken in the wallet configuration.",
+			);
+		}
 
-  /**
-   * Quotes the costs of a send transaction operation.
-   * Note: Uses bundler's manual gas estimation for accurate quotes.
-   *
-   * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
-   * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
-   * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
-   */
-  async quoteSendTransaction (tx, config) {
-    const { paymasterToken } = config ?? this._config
+		return await this.getTokenBalance(paymasterToken.address);
+	}
+
+	/**
+	 * Quotes the costs of a send transaction operation.
+	 * Note: Uses bundler's manual gas estimation for accurate quotes.
+	 *
+	 * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
+	 * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
+	 * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
+	 */
+	async quoteSendTransaction(tx, config) {
+		const { paymasterToken } = config ?? this._config;
 
     try {
       // Build a UserOp to get gas estimates from bundler using manual estimation
@@ -207,129 +205,130 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
     }
   }
 
-  /**
-   * Quotes the costs of a transfer operation.
-   *
-   * @param {TransferOptions} options - The transfer's options.
-   * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
-   * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
-   */
-  async quoteTransfer (options, config) {
-    // Build transfer transaction from options
-    const { to, amount, token } = options
-    
-    let tx
-    if (token) {
-      // ERC-20 token transfer
-      const erc20Interface = new Contract(token, [
-        'function transfer(address to, uint256 amount) returns (bool)'
-      ], await this._getProvider())
-      
-      tx = {
-        to: token,
-        value: 0,
-        data: erc20Interface.interface.encodeFunctionData('transfer', [to, amount])
-      }
-    } else {
-      // Native ETH transfer
-      tx = {
-        to,
-        value: amount,
-        data: '0x'
-      }
-    }
+	/**
+	 * Quotes the costs of a transfer operation.
+	 *
+	 * @param {TransferOptions} options - The transfer's options.
+	 * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
+	 * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
+	 */
+	async quoteTransfer(options, config) {
+		// Build transfer transaction from options
+		const { to, amount, token } = options;
 
-    const result = await this.quoteSendTransaction(tx, config)
+		let tx;
+		if (token) {
+			// ERC-20 token transfer
+			const erc20Interface = new Contract(
+				token,
+				["function transfer(address to, uint256 amount) returns (bool)"],
+				await this._getProvider(),
+			);
 
-    return result
-  }
+			tx = {
+				to: token,
+				value: 0,
+				data: erc20Interface.interface.encodeFunctionData("transfer", [to, amount]),
+			};
+		} else {
+			// Native ETH transfer
+			tx = {
+				to,
+				value: amount,
+				data: "0x",
+			};
+		}
 
-  /**
-   * Returns a transaction's receipt.
-   *
-   * @param {string} hash - The user operation hash.
-   * @returns {Promise<EvmTransactionReceipt | null>} – The receipt, or null if the transaction has not been included in a block yet.
-   */
-  async getTransactionReceipt (hash) {
-    // Query bundler for UserOp receipt
-    try {
-      const response = await fetch(this._config.bundlerUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'eth_getUserOperationReceipt',
-          params: [hash]
-        })
-      })
+		const result = await this.quoteSendTransaction(tx, config);
 
-      const result = await response.json()
-      
-      if (result.result && result.result.receipt) {
-        return result.result.receipt
-      }
+		return result;
+	}
 
-      return null
-    } catch (error) {
-      return null
-    }
-  }
+	/**
+	 * Returns a transaction's receipt.
+	 *
+	 * @param {string} hash - The user operation hash.
+	 * @returns {Promise<EvmTransactionReceipt | null>} – The receipt, or null if the transaction has not been included in a block yet.
+	 */
+	async getTransactionReceipt(hash) {
+		// Query bundler for UserOp receipt
+		try {
+			const response = await fetch(this._config.bundlerUrl, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					jsonrpc: "2.0",
+					id: 1,
+					method: "eth_getUserOperationReceipt",
+					params: [hash],
+				}),
+			});
 
-  /**
-   * Returns the current allowance for the given token and spender.
-   * @param {string} token - The token’s address.
-   * @param {string} spender - The spender’s address.
-   * @returns {Promise<bigint>} - The allowance.
-   */
-  async getAllowance (token, spender) {
-    const readOnlyAccount = await this._getEvmReadOnlyAccount()
+			const result = await response.json();
 
-    return await readOnlyAccount.getAllowance(token, spender)
-  }
+			if (result.result && result.result.receipt) {
+				return result.result.receipt;
+			}
 
-  /**
-   * Returns the provider instance.
-   *
-   * @protected
-   * @returns {Promise<JsonRpcProvider | BrowserProvider>} The provider.
-   */
-  async _getProvider () {
-    if (!this._provider) {
-      const { provider } = this._config
-      
-      this._provider = typeof provider === 'string'
-        ? new JsonRpcProvider(provider)
-        : new BrowserProvider(provider)
-    }
+			return null;
+		} catch (error) {
+			return null;
+		}
+	}
 
-    return this._provider
-  }
+	/**
+	 * Returns the current allowance for the given token and spender.
+	 * @param {string} token - The token’s address.
+	 * @param {string} spender - The spender’s address.
+	 * @returns {Promise<bigint>} - The allowance.
+	 */
+	async getAllowance(token, spender) {
+		const readOnlyAccount = await this._getEvmReadOnlyAccount();
 
-  /**
-   * Returns the chain id.
-   *
-   * @protected
-   * @returns {Promise<bigint>} - The chain id.
-   */
-  async _getChainId () {
-    if (!this._chainId) {
-      const provider = await this._getProvider()
-      const { chainId } = await provider.getNetwork()
-      this._chainId = chainId
-    }
+		return await readOnlyAccount.getAllowance(token, spender);
+	}
 
-    return this._chainId
-  }
+	/**
+	 * Returns the provider instance.
+	 *
+	 * @protected
+	 * @returns {Promise<JsonRpcProvider | BrowserProvider>} The provider.
+	 */
+	async _getProvider() {
+		if (!this._provider) {
+			const { provider } = this._config;
 
-  /** @private */
-  async _getEvmReadOnlyAccount () {
-    const address = await this.getAddress()
+			this._provider =
+				typeof provider === "string" ? new JsonRpcProvider(provider) : new BrowserProvider(provider);
+		}
 
-    const evmReadOnlyAccount = new WalletAccountReadOnlyEvmJs(address, this._config)
+		return this._provider;
+	}
 
-    return evmReadOnlyAccount
-  }
+	/**
+	 * Returns the chain id.
+	 *
+	 * @protected
+	 * @returns {Promise<bigint>} - The chain id.
+	 */
+	async _getChainId() {
+		if (!this._chainId) {
+			const provider = await this._getProvider();
+			const { chainId } = await provider.getNetwork();
+			this._chainId = chainId;
+		}
+
+		return this._chainId;
+	}
+
+	/** @private */
+	async _getEvmReadOnlyAccount() {
+		const address = await this.getAddress();
+
+		const evmReadOnlyAccount = new WalletAccountReadOnlyEvmJs(address, this._config);
+
+		return evmReadOnlyAccount;
+	}
 
   /**
    * Estimates gas cost for a UserOperation by querying the bundler.
