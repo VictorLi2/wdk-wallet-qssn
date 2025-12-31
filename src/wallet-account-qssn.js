@@ -326,6 +326,10 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 		// Check if wallet is deployed
 		const code = await provider.getCode(walletAddress);
 		const isDeployed = code !== "0x";
+		
+		// Check if this is the wallet's first transaction (cold storage overhead applies)
+		// Only nonce 0 has cold storage costs - after first successful tx, storage is warm
+		const isFirstUse = nonce === 0n;
 
 		// Create factory and factoryData if not deployed (v0.7 format)
 		let factory = null;
@@ -375,19 +379,25 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 		// Fallback defaults if no estimates provided
 		const preVerificationGas = gasLimits?.preVerificationGas || BigInt(isDeployed ? 150000 : 500000);
 
-		// For undeployed wallets, add factory deployment overhead
-		// Bundler underestimates factory deployment cost (estimates ~23k, but deployment needs ~2M+)
+		// Bundler's binary search tests operations in isolation, missing EntryPoint overhead
+		// Always add base overhead for EntryPoint's gas costs (nonce, gas payment, events, etc.)
 		let verificationGasLimit = gasLimits?.verificationGasLimit || BigInt(isDeployed ? 196608 : 1000000);
 		if (!isDeployed) {
 			// Add deployment overhead: factory.createAccount() + constructor + storage initialization
 			verificationGasLimit = verificationGasLimit + BigInt(2000000);
+		} else {
+			// Even for deployed wallets, add base overhead for EntryPoint logic
+			verificationGasLimit = verificationGasLimit + BigInt(100000);
 		}
 
 		// Use tx.gasLimit hint if it's higher than estimation (protects against underestimation)
-		// For undeployed wallets, add overhead for cold storage access costs
 		let estimatedCallGas = gasLimits?.callGasLimit || BigInt(1000000);
-		if (!isDeployed) {
-			estimatedCallGas = estimatedCallGas + BigInt(75000); // Add cold storage overhead for first tx
+		if (isFirstUse) {
+			// Add cold storage overhead for first tx (SLOAD warming costs)
+			estimatedCallGas = estimatedCallGas + BigInt(75000);
+		} else {
+			// Even for warm storage, add base overhead for EntryPoint's execution logic
+			estimatedCallGas = estimatedCallGas + BigInt(25000);
 		}
 		const callGasLimit = txGasHint && txGasHint > estimatedCallGas ? txGasHint : estimatedCallGas;
 
