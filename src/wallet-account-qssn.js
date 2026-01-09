@@ -192,11 +192,13 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 	async sendTransaction(tx, config) {
 		const { paymasterToken } = config ?? this._config;
 
-		const { fee, gasLimits } = await this.quoteSendTransaction(tx, config);
+		const { fee, gasLimits, _cached } = await this.quoteSendTransaction(tx, config);
 
 		// If paymaster is configured, pass token approval options
+		// Also pass cached RPC data to avoid duplicate calls
 		const options = {
 			gasLimits, // Always include gas limits from estimation
+			_cached, // Cached nonce, isDeployed, feeData from estimation
 			...(paymasterToken && {
 				paymasterTokenAddress: paymasterToken.address,
 				amountToApprove: BigInt((fee * FEE_TOLERANCE_COEFFICIENT) / 100n),
@@ -220,15 +222,17 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
 		const tx = await WalletAccountEvm._getTransferTransaction(options);
 
-		const { fee, gasLimits } = await this.quoteSendTransaction(tx, config);
+		const { fee, gasLimits, _cached } = await this.quoteSendTransaction(tx, config);
 
 		if (transferMaxFee !== undefined && fee >= transferMaxFee) {
 			throw new Error("Exceeded maximum fee cost for transfer operation.");
 		}
 
 		// If paymaster is configured, pass token approval options
+		// Also pass cached RPC data to avoid duplicate calls
 		const txOptions = {
 			gasLimits, // Always include gas limits from estimation
+			_cached, // Cached nonce, isDeployed, feeData from estimation
 			...(paymasterToken && {
 				paymasterTokenAddress: paymasterToken.address,
 				amountToApprove: BigInt((fee * FEE_TOLERANCE_COEFFICIENT) / 100n),
@@ -314,19 +318,30 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 	async _buildUserOp(txs, signature, options) {
 		const walletAddress = await this.getAddress();
 		const provider = await this._getProvider();
-		const entryPoint = new Contract(
-			this._config.entryPointAddress,
-			["function getNonce(address sender, uint192 key) view returns (uint256)"],
-			provider,
-		);
 
-		// Get nonce
-		const nonce = await entryPoint.getNonce(walletAddress, 0);
+		// Use cached RPC data if available (from quoteSendTransaction), otherwise fetch fresh
+		let nonce, isDeployed, feeData;
+		if (options?._cached) {
+			// Reuse cached values - saves 3 RPC calls!
+			({ nonce, isDeployed, feeData } = options._cached);
+		} else {
+			// No cache - fetch fresh (fallback for direct _buildUserOp calls)
+			const entryPoint = new Contract(
+				this._config.entryPointAddress,
+				["function getNonce(address sender, uint192 key) view returns (uint256)"],
+				provider,
+			);
+			// Fetch all RPC data in parallel
+			const [fetchedNonce, code, fetchedFeeData] = await Promise.all([
+				entryPoint.getNonce(walletAddress, 0),
+				provider.getCode(walletAddress),
+				provider.getFeeData(),
+			]);
+			nonce = fetchedNonce;
+			isDeployed = code !== "0x";
+			feeData = fetchedFeeData;
+		}
 
-		// Check if wallet is deployed
-		const code = await provider.getCode(walletAddress);
-		const isDeployed = code !== "0x";
-		
 		// Check if this is the wallet's first transaction (cold storage overhead applies)
 		// Only nonce 0 has cold storage costs - after first successful tx, storage is warm
 		const isFirstUse = nonce === 0n;
@@ -367,9 +382,7 @@ export default class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 			callData = wallet.encodeFunctionData("executeBatch", [calls]);
 		}
 
-		// Get gas estimates
-		const feeData = await provider.getFeeData();
-
+		// Use cached feeData (already fetched above)
 		// Use gas limits from estimation if provided, otherwise use defaults
 		const gasLimits = options?.gasLimits;
 

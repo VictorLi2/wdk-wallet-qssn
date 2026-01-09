@@ -187,7 +187,7 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 	 *
 	 * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
 	 * @param {QssnWalletConfig} [config] - Optional config override for paymaster settings.
-	 * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
+	 * @returns {Promise<{fee: bigint, gasLimits: Object, _cached?: Object}>} The transaction's quotes and cached RPC data.
 	 */
 	async quoteSendTransaction(tx, config) {
 		const { paymasterToken } = config ?? this._config;
@@ -195,9 +195,9 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 		try {
 			// Build a UserOp to get gas estimates from bundler using manual estimation
 			console.log("[QSSN SDK] Calling manual gas estimation with real callData...");
-			const { fee, gasLimits } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
+			const { fee, gasLimits, _cached } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
 			console.log("[QSSN SDK] Manual gas estimation succeeded, fee:", fee);
-			return { fee, gasLimits };
+			return { fee, gasLimits, _cached };
 		} catch (error) {
 			// Block ALL estimation failures - can't submit without proper gas estimates
 			console.error("[QSSN SDK] Gas estimation failed - blocking submission:", error.message);
@@ -336,7 +336,7 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 	 * @private
 	 * @param {EvmTransaction[]} txs - Array of transactions.
 	 * @param {Object} [paymasterToken] - Optional paymaster token config.
-	 * @returns {Promise<bigint>} Estimated gas cost in wei (or paymaster token if configured).
+	 * @returns {Promise<{fee: bigint, gasLimits: Object, _cached: Object}>} Estimated gas cost and cached RPC data.
 	 */
 	async _estimateUserOperationGas(txs, paymasterToken) {
 		const walletAddress = await this.getAddress();
@@ -347,8 +347,13 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 			provider,
 		);
 
-		const nonce = await entryPoint.getNonce(walletAddress, 0);
-		const code = await provider.getCode(walletAddress);
+		// Fetch all RPC data in parallel to reduce latency
+		const [nonce, code, feeData] = await Promise.all([
+			entryPoint.getNonce(walletAddress, 0),
+			provider.getCode(walletAddress),
+			provider.getFeeData(),
+		]);
+
 		const isDeployed = code !== "0x";
 
 		// Create factory and factoryData if not deployed
@@ -424,7 +429,6 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 		// Extract gas estimates from bundler response
 		const { callGasLimit, verificationGasLimit, preVerificationGas } = result.result;
 
-		const feeData = await provider.getFeeData();
 		const maxFeePerGas = feeData.maxFeePerGas || 1000000000n;
 
 		// Calculate total gas cost
@@ -437,6 +441,12 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 				callGasLimit: BigInt(callGasLimit),
 				verificationGasLimit: BigInt(verificationGasLimit),
 				preVerificationGas: BigInt(preVerificationGas),
+			},
+			// Cache RPC results to avoid duplicate calls in sendTransaction
+			_cached: {
+				nonce,
+				isDeployed,
+				feeData,
 			},
 		};
 	}
