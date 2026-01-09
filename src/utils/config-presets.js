@@ -25,6 +25,12 @@ export const QSSN_CONFIG_PRESETS = {
 		entryPointAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
 		factoryAddress: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
 	},
+	// Sepolia Testnet
+	11155111: {
+		bundlerUrl: "https://qssn-bundler-v2-production.up.railway.app/rpc",
+		entryPointAddress: "0x7cc6FDD8EDA901AE6a633C85c7C8819e777aE76B",
+		factoryAddress: "0xBE6DC7D9Ac081efFaC77b80A337412b3DD6DcB18",
+	},
 	// Add more chain presets as you deploy to other networks:
 	// 1: { // Ethereum Mainnet
 	//   bundlerUrl: 'https://bundler.qssn.io/mainnet',
