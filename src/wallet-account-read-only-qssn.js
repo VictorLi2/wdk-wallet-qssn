@@ -194,9 +194,7 @@ export default class WalletAccountReadOnlyQssn extends WalletAccountReadOnly {
 
 		try {
 			// Build a UserOp to get gas estimates from bundler using manual estimation
-			console.log("[QSSN SDK] Calling manual gas estimation with real callData...");
 			const { fee, gasLimits, _cached } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
-			console.log("[QSSN SDK] Manual gas estimation succeeded, fee:", fee);
 			return { fee, gasLimits, _cached };
 		} catch (error) {
 			// Block ALL estimation failures - can't submit without proper gas estimates
