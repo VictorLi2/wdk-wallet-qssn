@@ -17,6 +17,5 @@ Thumbs.db
 npm-debug.log*
 
 # Build artifacts
-dist
 build
 *.tsbuildinfo
