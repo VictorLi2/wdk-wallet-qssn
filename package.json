@@ -20,38 +20,34 @@
     "type": "git",
     "url": "git://github.com/tetherto/wdk-wallet-qssn.git"
   },
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
-  "types": "./types",
   "files": [
-    "index.js",
-    "bare.js",
-    "src/",
-    "types/",
+    "dist/",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build:types": "tsc",
-    "prepare": "npm run build:types",
-    "lint": "standard",
-    "lint:fix": "standard --fix",
-    "format": "prettier --write \"src/**/*.js\" \"*.js\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"*.js\""
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
   },
   "dependencies": {
     "@noble/hashes": "1.6.1",
     "@noble/post-quantum": "0.5.2",
     "@scure/bip32": "1.6.0",
     "@scure/bip39": "1.5.0",
-    "@tetherto/wdk-wallet": "^1.0.0-beta.1",
-    "@wdk-safe-global/relay-kit": "4.1.3",
     "ethers": "6.14.4"
   },
   "devDependencies": {
+    "@types/node": "^20.10.0",
     "prettier": "^3.7.4",
-    "standard": "17.1.2",
-    "typescript": "5.8.3"
+    "typescript": "^5.8.3"
   },
   "overrides": {
     "axios": "1.12.2",
@@ -61,9 +57,9 @@
   },
   "exports": {
     ".": {
-      "types": "./types/index.d.ts",
-      "bare": "./bare.js",
-      "default": "./index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./package": {
       "default": "./package.json"
@@ -72,11 +68,5 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
-  },
-  "standard": {
-    "ignore": [
-      "bare.js",
-      "tests/**/*.js"
-    ]
   }
 }
