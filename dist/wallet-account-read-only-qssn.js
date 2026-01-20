@@ -72,12 +72,44 @@ export class WalletAccountReadOnlyQssn {
     }
     /**
      * Quotes the costs of a send transaction operation.
+     * Applies the same overhead as _buildUserOp for accurate estimates.
      */
     async quoteSendTransaction(tx, config) {
         const { paymasterToken } = config ?? this._config;
         try {
-            const { fee, gasLimits, _cached } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
-            return { fee, gasLimits, _cached };
+            const { fee, totalGas, gasLimits, _cached } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
+            // If bundler returned totalGasEstimate with overhead included, use it directly
+            if (totalGas) {
+                return {
+                    fee,
+                    totalGas,
+                    gasLimits,
+                    _cached,
+                };
+            }
+            // Fallback: Apply percentage-based buffer if bundler didn't return totalGasEstimate
+            // This ensures the quote matches what will actually be submitted
+            const gasBufferPercent = this._config.gasBufferPercent ?? 10;
+            const bufferMultiplier = BigInt(100 + gasBufferPercent);
+            const applyBuffer = (gas) => (gas * bufferMultiplier) / 100n;
+            // Apply buffer to all gas limits
+            const adjustedCallGas = applyBuffer(gasLimits.callGasLimit);
+            const adjustedVerificationGas = applyBuffer(gasLimits.verificationGasLimit);
+            const adjustedPreVerificationGas = applyBuffer(gasLimits.preVerificationGas);
+            // Calculate adjusted fee
+            const maxFeePerGas = _cached.feeData.maxFeePerGas || BigInt(1000000000);
+            const adjustedTotalGas = adjustedCallGas + adjustedVerificationGas + adjustedPreVerificationGas;
+            const adjustedFee = adjustedTotalGas * maxFeePerGas;
+            return {
+                fee: adjustedFee,
+                totalGas: adjustedTotalGas,
+                gasLimits: {
+                    callGasLimit: adjustedCallGas,
+                    verificationGasLimit: adjustedVerificationGas,
+                    preVerificationGas: adjustedPreVerificationGas,
+                },
+                _cached,
+            };
         }
         catch (error) {
             throw error;
@@ -223,6 +255,9 @@ export class WalletAccountReadOnlyQssn {
             }));
             callData = wallet.encodeFunctionData("executeBatch", [calls]);
         }
+        // Empty signature - the bundler will construct the appropriate QSSN dummy signature
+        // Only ABI structure matters for estimation, not actual key values
+        const dummySignature = "0x";
         // Build UserOp for gas estimation
         const userOp = {
             sender: walletAddress,
@@ -233,7 +268,7 @@ export class WalletAccountReadOnlyQssn {
             preVerificationGas: "0x0",
             maxFeePerGas: "0x0",
             maxPriorityFeePerGas: "0x0",
-            signature: "0x",
+            signature: dummySignature,
         };
         if (!isDeployed) {
             userOp.factory = factory;
@@ -246,7 +281,7 @@ export class WalletAccountReadOnlyQssn {
             body: JSON.stringify({
                 jsonrpc: "2.0",
                 id: 1,
-                method: "eth_estimateUserOperationGasManual",
+                method: "eth_estimateUserOperationGas",
                 params: [userOp, this._config.entryPointAddress],
             }),
         });
@@ -257,14 +292,19 @@ export class WalletAccountReadOnlyQssn {
         if (!result.result) {
             throw new Error("No gas estimation result returned from bundler");
         }
-        const { callGasLimit, verificationGasLimit, preVerificationGas } = result.result;
+        const { callGasLimit, verificationGasLimit, preVerificationGas, totalGasEstimate } = result.result;
         const maxFeePerGas = feeData.maxFeePerGas || 1000000000n;
-        const totalGas = BigInt(callGasLimit) +
-            BigInt(verificationGasLimit) +
-            BigInt(preVerificationGas);
+        // Use totalGasEstimate from bundler if available (includes EntryPoint overhead)
+        // Otherwise fall back to sum of components
+        const totalGas = totalGasEstimate
+            ? BigInt(totalGasEstimate)
+            : BigInt(callGasLimit) +
+                BigInt(verificationGasLimit) +
+                BigInt(preVerificationGas);
         const gasCostInWei = totalGas * maxFeePerGas;
         return {
             fee: gasCostInWei,
+            totalGas, // Total gas including EntryPoint overhead (if bundler provides it)
             gasLimits: {
                 callGasLimit: BigInt(callGasLimit),
                 verificationGasLimit: BigInt(verificationGasLimit),

@@ -29,6 +29,7 @@ export declare class WalletAccountReadOnlyQssn {
     getPaymasterTokenBalance(): Promise<bigint>;
     /**
      * Quotes the costs of a send transaction operation.
+     * Applies the same overhead as _buildUserOp for accurate estimates.
      */
     quoteSendTransaction(tx: EvmTransaction | EvmTransaction[], config?: Partial<QssnWalletConfig>): Promise<QuoteResult>;
     /**
@@ -59,6 +60,7 @@ export declare class WalletAccountReadOnlyQssn {
      */
     protected _estimateUserOperationGas(txs: EvmTransaction[], _paymasterToken?: PaymasterTokenConfig): Promise<{
         fee: bigint;
+        totalGas?: bigint;
         gasLimits: GasLimits;
         _cached: CachedRpcData;
     }>;

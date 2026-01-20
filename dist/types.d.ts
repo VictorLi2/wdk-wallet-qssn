@@ -105,6 +105,12 @@ export interface QssnWalletConfig {
     transferMaxFee?: bigint | number;
     /** ML-DSA security level (44, 65, or 87). Default: 65 */
     mldsaSecurityLevel?: MLDSASecurityLevel;
+    /**
+     * Gas buffer percentage to add on top of bundler estimates.
+     * This provides a safety margin against gas price fluctuations and estimation variance.
+     * Default: 10 (10% buffer). Set to 0 to use exact bundler estimates.
+     */
+    gasBufferPercent?: number;
 }
 /**
  * User-provided configuration (chainId and provider required, presets applied automatically)
@@ -124,6 +130,12 @@ export interface QssnUserConfig {
     paymasterAddress?: string;
     /** Paymaster token configuration (optional) */
     paymasterToken?: PaymasterTokenConfig;
+    /**
+     * Gas buffer percentage to add on top of bundler estimates.
+     * This provides a safety margin against gas price fluctuations and estimation variance.
+     * Default: 10 (10% buffer). Set to 0 to use exact bundler estimates.
+     */
+    gasBufferPercent?: number;
 }
 /**
  * Chain preset configuration
@@ -157,6 +169,7 @@ export interface CachedRpcData {
  */
 export interface QuoteResult {
     fee: bigint;
+    totalGas?: bigint;
     gasLimits: GasLimits;
     _cached?: CachedRpcData;
 }

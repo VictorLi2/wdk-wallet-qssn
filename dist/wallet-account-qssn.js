@@ -282,35 +282,40 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
             }));
             callData = wallet.encodeFunctionData("executeBatch", [calls]);
         }
-        // Use cached feeData (already fetched above)
         // Use gas limits from estimation if provided, otherwise use defaults
         const gasLimits = options?.gasLimits;
         // Allow tx.gasLimit to override callGasLimit (for complex operations like factory deployments)
         const txGasHint = txs[0]?.gasLimit ? BigInt(txs[0].gasLimit) : null;
-        // Fallback defaults if no estimates provided
-        const preVerificationGas = gasLimits?.preVerificationGas || BigInt(isDeployed ? 150000 : 500000);
-        // Bundler's binary search tests operations in isolation, missing EntryPoint overhead
-        // Always add base overhead for EntryPoint's gas costs (nonce, gas payment, events, etc.)
-        let verificationGasLimit = gasLimits?.verificationGasLimit || BigInt(isDeployed ? 196608 : 1000000);
-        if (!isDeployed) {
-            // Add deployment overhead: factory.createAccount() + constructor + storage initialization
-            verificationGasLimit = verificationGasLimit + BigInt(2000000);
+        // Gas buffer percentage (default 20% = adds 20% on top of bundler estimates)
+        // QSSN first UserOps (wallet deployment) need ~12% minimum buffer, we use 20% for safety
+        // Regular UserOps on deployed wallets may need less buffer
+        const gasBufferPercent = this._config.gasBufferPercent ?? 20;
+        const bufferMultiplier = BigInt(100 + gasBufferPercent);
+        // Helper to apply buffer to a gas value
+        const applyBuffer = (gas) => (gas * bufferMultiplier) / 100n;
+        // QSSN minimum verificationGasLimit: The bundler estimates with a dummy signature
+        // that causes tryRecover to fail early. But real signatures need more gas for:
+        // - ABI decoding the ~5KB QSSN signature
+        // - ECDSA.tryRecover with valid signature
+        // - keccak256 of ML-DSA public key + comparison
+        // Minimum 150K gas covers these operations safely
+        const QSSN_MIN_VERIFICATION_GAS = BigInt(150000);
+        // Get base gas values from bundler estimates or use fallback defaults
+        const basePreVerificationGas = gasLimits?.preVerificationGas || BigInt(isDeployed ? 150000 : 500000);
+        const estimatedVerificationGas = gasLimits?.verificationGasLimit || BigInt(isDeployed ? 196608 : 1000000);
+        // Enforce minimum for QSSN wallets (dummy sig estimation underestimates real sig gas)
+        const baseVerificationGasLimit = estimatedVerificationGas > QSSN_MIN_VERIFICATION_GAS
+            ? estimatedVerificationGas
+            : QSSN_MIN_VERIFICATION_GAS;
+        const baseCallGasLimit = gasLimits?.callGasLimit || BigInt(1000000);
+        // Apply buffer to all gas limits
+        const preVerificationGas = applyBuffer(basePreVerificationGas);
+        const verificationGasLimit = applyBuffer(baseVerificationGasLimit);
+        let callGasLimit = applyBuffer(baseCallGasLimit);
+        // Use tx.gasLimit hint if it's higher than buffered estimation (protects against underestimation)
+        if (txGasHint && txGasHint > callGasLimit) {
+            callGasLimit = txGasHint;
         }
-        else {
-            // Even for deployed wallets, add base overhead for EntryPoint logic
-            verificationGasLimit = verificationGasLimit + BigInt(100000);
-        }
-        // Use tx.gasLimit hint if it's higher than estimation (protects against underestimation)
-        let estimatedCallGas = gasLimits?.callGasLimit || BigInt(1000000);
-        if (isFirstUse) {
-            // Add cold storage overhead for first tx (SLOAD warming costs)
-            estimatedCallGas = estimatedCallGas + BigInt(75000);
-        }
-        else {
-            // Even for warm storage, add base overhead for EntryPoint's execution logic
-            estimatedCallGas = estimatedCallGas + BigInt(25000);
-        }
-        const callGasLimit = txGasHint && txGasHint > estimatedCallGas ? txGasHint : estimatedCallGas;
         // Build UserOperation in v0.9 unpacked format (for bundler RPC)
         // The bundler expects unpacked fields, not packed format
         const userOp = {
