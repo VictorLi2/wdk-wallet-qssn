@@ -275,6 +275,10 @@ export class WalletAccountReadOnlyQssn {
             userOp.factoryData = factoryData;
         }
         // Query bundler for gas estimates
+        console.log("[QSSN SDK] Making gas estimation call:");
+        console.log("[QSSN SDK] - Bundler URL:", this._config.bundlerUrl);
+        console.log("[QSSN SDK] - EntryPoint Address:", this._config.entryPointAddress);
+        console.log("[QSSN SDK] - UserOp Sender:", userOp.sender);
         const response = await fetch(this._config.bundlerUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -286,7 +290,10 @@ export class WalletAccountReadOnlyQssn {
             }),
         });
         const result = (await response.json());
+        console.log("[QSSN SDK] Gas estimation response:", result);
         if (result.error) {
+            console.error("[QSSN SDK] Gas estimation error:", result.error.message);
+            console.error("[QSSN SDK] Full error response:", result);
             throw new Error(result.error.message);
         }
         if (!result.result) {
