@@ -25,8 +25,8 @@ export const QSSN_CONFIG_PRESETS = {
     // Sepolia Testnet
     11155111: {
         bundlerUrl: "https://qssn-bundler-v2-production.up.railway.app/rpc",
-        entryPointAddress: "0x7cc6FDD8EDA901AE6a633C85c7C8819e777aE76B",
-        factoryAddress: "0xBE6DC7D9Ac081efFaC77b80A337412b3DD6DcB18",
+        entryPointAddress: "0x807FaEf54195dd426c51909A007b93e2d5E44085",
+        factoryAddress: "0x7402F6bD0943917A93F09F0BAd4168D30b9119a5",
     },
 };
 /**
