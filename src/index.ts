@@ -30,6 +30,11 @@ export {
 } from "./utils/config-presets.js";
 export { MLDSAKeyDerivation } from "./utils/mldsa-key-derivation.js";
 export { MLDSASigner } from "./utils/mldsa-signer.js";
+export { waitForUserOp } from "./utils/bundler-subscription.js";
+export type {
+  WaitForUserOpOptions,
+  UserOpResult,
+} from "./utils/bundler-subscription.js";
 
 // Types
 export type {

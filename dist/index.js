@@ -23,4 +23,5 @@ export { WalletAccountReadOnlyEvm } from "./wallet-account-read-only-evm.js";
 export { createQssnConfig, getPresetConfig, QSSN_CONFIG_PRESETS, } from "./utils/config-presets.js";
 export { MLDSAKeyDerivation } from "./utils/mldsa-key-derivation.js";
 export { MLDSASigner } from "./utils/mldsa-signer.js";
+export { waitForUserOp } from "./utils/bundler-subscription.js";
 //# sourceMappingURL=index.js.map
