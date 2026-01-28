@@ -19,3 +19,6 @@ npm-debug.log*
 # Build artifacts
 build
 *.tsbuildinfo
+
+# Test environment
+.env.test
