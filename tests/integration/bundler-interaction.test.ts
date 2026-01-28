@@ -37,7 +37,7 @@ describeIntegration("Integration: Bundler with Operator Rotation", { timeout: 60
 
 		const walletManager = new WalletManagerQssn(ecdsaMnemonic, mldsaMnemonic, {
 			chainId: TEST_CONFIG.chainId,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
 		});
 
@@ -80,7 +80,7 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 
 		const walletManager = new WalletManagerQssn(ecdsaMnemonic, mldsaMnemonic, {
 			chainId: TEST_CONFIG.chainId,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
 		});
 
@@ -122,7 +122,7 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 
 			const walletManager = new WalletManagerQssn(ecdsaMnemonic, mldsaMnemonic, {
 				chainId: TEST_CONFIG.chainId,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 				provider: TEST_CONFIG.rpcUrl,
 			});
 
@@ -176,7 +176,7 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 
 		const walletManager = new WalletManagerQssn(ecdsaMnemonic, mldsaMnemonic, {
 			chainId: TEST_CONFIG.chainId,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
 		});
 
@@ -197,15 +197,18 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 		expect(pollResult.success).toBe(true);
 		expect(pollResult.txHash).toBeTruthy();
 
-		// Get receipt using the actual transaction hash from the bundler
-		const receipt = await account.getTransactionReceipt(pollResult.txHash!);
+		// Get receipt using the userOpHash (not the txHash)
+		// getTransactionReceipt calls eth_getUserOperationReceipt which needs the userOpHash
+		const receipt = await account.getTransactionReceipt(result.hash);
 
 		expect(receipt).toBeDefined();
 		expect(receipt).not.toBeNull();
 		if (receipt) {
-			expect(receipt.blockNumber).toBeGreaterThan(0);
-			expect(BigInt(receipt.gasUsed)).toBeGreaterThan(0n); // Convert string to BigInt
-			expect(receipt.status).toBe(1); // Success
+			// Receipt values come as hex strings from eth_getUserOperationReceipt
+			expect(BigInt(receipt.blockNumber)).toBeGreaterThan(0n);
+			expect(BigInt(receipt.gasUsed)).toBeGreaterThan(0n);
+			// Status is "success" for successful transactions
+			expect(receipt.status).toBe("success");
 		}
 	});
 });

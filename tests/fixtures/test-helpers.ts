@@ -2,33 +2,44 @@
  * Helper utilities for integration tests
  */
 
-import { ethers } from "ethers";
+import { ethers, NonceManager } from "ethers";
 import { TEST_CONFIG, TEST_FUNDER_PRIVATE_KEY } from "./test-config.js";
 
-// Shared funder wallet to avoid nonce conflicts
-let _sharedFunder: ethers.Wallet | null = null;
+// Singleton NonceManager for the funder wallet
+// This ensures all tests share the same nonce tracking
+let sharedFunderNonceManager: NonceManager | null = null;
+let sharedProvider: ethers.JsonRpcProvider | null = null;
 
-function getSharedFunder(provider: ethers.Provider): ethers.Wallet {
-	if (!_sharedFunder || _sharedFunder.provider !== provider) {
-		_sharedFunder = new ethers.Wallet(TEST_FUNDER_PRIVATE_KEY, provider);
+/**
+ * Get the shared funder wallet wrapped with NonceManager.
+ * Uses a singleton pattern to ensure consistent nonce tracking across all tests.
+ * The NonceManager queries the chain for fresh nonces, avoiding "nonce too low" errors.
+ */
+export function getFunderWallet(provider?: ethers.Provider): NonceManager {
+	// If no singleton yet, create one
+	if (!sharedFunderNonceManager) {
+		sharedProvider = new ethers.JsonRpcProvider(TEST_CONFIG.rpcUrl);
+		const wallet = new ethers.Wallet(TEST_FUNDER_PRIVATE_KEY, sharedProvider);
+		sharedFunderNonceManager = new NonceManager(wallet);
 	}
-	return _sharedFunder;
+	return sharedFunderNonceManager;
 }
 
 /**
- * Get the shared funder wallet (avoids nonce conflicts)
+ * Reset the shared NonceManager (useful between test runs if needed)
  */
-export function getFunderWallet(provider?: ethers.Provider): ethers.Wallet {
-	const testProvider = provider || new ethers.JsonRpcProvider(TEST_CONFIG.rpcUrl);
-	return getSharedFunder(testProvider);
+export function resetFunderNonceManager(): void {
+	if (sharedFunderNonceManager) {
+		sharedFunderNonceManager.reset();
+	}
 }
 
 /**
  * Fund a wallet with ETH for testing
+ * Uses the shared NonceManager for automatic nonce handling
  */
 export async function fundWallet(address: string, amount: string, provider?: ethers.Provider): Promise<void> {
-	const testProvider = provider || new ethers.JsonRpcProvider(TEST_CONFIG.rpcUrl);
-	const funder = getSharedFunder(testProvider);
+	const funder = getFunderWallet();
 
 	const tx = await funder.sendTransaction({
 		to: address,

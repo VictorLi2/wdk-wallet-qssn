@@ -11,10 +11,11 @@ export default defineConfig({
 		teardownTimeout: 30000,
 		include: ["**/*.test.ts"],
 		exclude: ["node_modules/**", "dist/**"],
-		pool: "forks", // Run tests in separate processes
+		// Run all tests sequentially in same thread to share funder wallet nonce state
+		pool: "threads",
 		poolOptions: {
-			forks: {
-				singleFork: true, // Run tests sequentially to avoid nonce conflicts
+			threads: {
+				singleThread: true, // All tests in one thread, sharing module state
 			},
 		},
 		coverage: {
