@@ -26,6 +26,8 @@ export const TEST_CONFIG = {
 
 	// Test wallet funding
 	fundingAmount: process.env.TEST_FUNDING_AMOUNT || "1.0",
+	funderPrivateKey:
+		process.env.TEST_FUNDER_PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 
 	// Feature flags
 	skipIntegrationTests: !process.env.RUN_INTEGRATION_TESTS,

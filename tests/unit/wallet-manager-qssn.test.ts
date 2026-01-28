@@ -12,7 +12,7 @@ describe("WalletManagerQssn", () => {
 			const wallet = new WalletManagerQssn(TEST_MNEMONIC, TEST_MNEMONIC, {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
 			expect(wallet).toBeInstanceOf(WalletManagerQssn);
@@ -39,7 +39,7 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 			const wallet = new WalletManagerQssn(TEST_MNEMONIC, TEST_MNEMONIC, {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
 			const account = await wallet.getAccount();
@@ -52,7 +52,7 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 			const wallet = new WalletManagerQssn(TEST_MNEMONIC, TEST_MNEMONIC, {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
 			const account0 = await wallet.getAccount(0);
@@ -67,7 +67,7 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 			const wallet = new WalletManagerQssn(TEST_MNEMONIC, TEST_MNEMONIC, {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
 			const account1 = await wallet.getAccount(0);
@@ -82,7 +82,7 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 			const wallet = new WalletManagerQssn(TEST_MNEMONIC, TEST_MNEMONIC, {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
 			const account = await wallet.getAccountByPath("0'/0/5");
@@ -95,7 +95,7 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 			const wallet = new WalletManagerQssn(TEST_MNEMONIC, TEST_MNEMONIC, {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
 			const account1 = await wallet.getAccountByPath("0'/0/0");
@@ -112,13 +112,13 @@ bundlerUrl: TEST_CONFIG.bundlerUrl,
 			const wallet1 = new WalletManagerQssn(TEST_MNEMONIC, TEST_MNEMONIC, {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
 			const wallet2 = new WalletManagerQssn(TEST_MNEMONIC, TEST_MNEMONIC, {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
-bundlerUrl: TEST_CONFIG.bundlerUrl,
+				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
 			const account1 = await wallet1.getAccount(0);

@@ -11,7 +11,9 @@ tests/
 │   └── wallet-account-qssn.test.ts
 ├── integration/             # Integration tests (require bundler/node)
 │   ├── bundler-interaction.test.ts
-│   └── undeployed-wallet.test.ts
+│   ├── undeployed-wallet.test.ts
+│   ├── gas-accuracy.test.ts
+│   └── revert-detection.test.ts
 ├── fixtures/                # Shared test utilities
 │   ├── test-config.ts      # Test configuration
 │   └── test-helpers.ts     # Helper functions
@@ -37,7 +39,20 @@ npm run test:integration
 Integration tests require:
 
 - Local Anvil node running on `http://127.0.0.1:8545`
-- QSSN bundler running on `http://127.0.0.1:4337`
+- QSSN bundler running on `http://localhost:14337/rpc`
+- Contracts deployed (see below)
+
+**Important**: Tests use unique wallet addresses for each run, so you **don't need to restart Anvil** between test runs. The nonce management is automatic.
+
+If you encounter issues with stale contract state, you can optionally reset the environment:
+
+```bash
+# Reset Anvil and redeploy contracts (optional)
+./scripts/reset-test-env.sh
+
+# Then run tests
+RUN_INTEGRATION_TESTS=true npm test
+```
 
 ### All Tests
 

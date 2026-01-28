@@ -12,43 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type {
-  ChainPreset,
-  QssnUserConfig,
-  QssnWalletConfig,
-} from "../types.js";
+import type { ChainPreset, QssnUserConfig, QssnWalletConfig } from "../types.js";
 
 /**
  * Preset configurations for QSSN wallets by chain ID.
  * Users need to provide chainId, provider, and bundlerUrl - contract addresses are preset.
  */
 export const QSSN_CONFIG_PRESETS: Record<number, ChainPreset> = {
-  // Anvil Local Testnet
-  31337: {
-    entryPointAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    factoryAddress: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-  },
-  // Sepolia Testnet
-  11155111: {
-    entryPointAddress: "0x807FaEf54195dd426c51909A007b93e2d5E44085",
-    factoryAddress: "0x7402F6bD0943917A93F09F0BAd4168D30b9119a5",
-  },
+	// Anvil Local Testnet
+	31337: {
+		entryPointAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+		factoryAddress: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+	},
+	// Sepolia Testnet
+	11155111: {
+		entryPointAddress: "0x807FaEf54195dd426c51909A007b93e2d5E44085",
+		factoryAddress: "0x7402F6bD0943917A93F09F0BAd4168D30b9119a5",
+	},
 };
 
 /**
  * Gets the preset configuration for a given chain ID.
  */
 export function getPresetConfig(chainId: number): ChainPreset {
-  const preset = QSSN_CONFIG_PRESETS[chainId];
+	const preset = QSSN_CONFIG_PRESETS[chainId];
 
-  if (!preset) {
-    throw new Error(
-      `No QSSN preset configuration found for chainId ${chainId}. ` +
-        `Supported chains: ${Object.keys(QSSN_CONFIG_PRESETS).join(", ")}`
-    );
-  }
+	if (!preset) {
+		throw new Error(
+			`No QSSN preset configuration found for chainId ${chainId}. ` +
+				`Supported chains: ${Object.keys(QSSN_CONFIG_PRESETS).join(", ")}`,
+		);
+	}
 
-  return preset;
+	return preset;
 }
 
 /**
@@ -58,59 +54,55 @@ export function getPresetConfig(chainId: number): ChainPreset {
  * Preset values (entryPointAddress, factoryAddress) cannot be overridden.
  */
 export function createQssnConfig(userConfig: QssnUserConfig): QssnWalletConfig {
-  if (!userConfig.chainId) {
-    throw new Error("chainId is required in config");
-  }
+	if (!userConfig.chainId) {
+		throw new Error("chainId is required in config");
+	}
 
-  if (!userConfig.provider) {
-    throw new Error("provider is required in config");
-  }
+	if (!userConfig.provider) {
+		throw new Error("provider is required in config");
+	}
 
-  if (!userConfig.bundlerUrl) {
-    throw new Error("bundlerUrl is required in config");
-  }
+	if (!userConfig.bundlerUrl) {
+		throw new Error("bundlerUrl is required in config");
+	}
 
-  const preset = getPresetConfig(userConfig.chainId);
+	const preset = getPresetConfig(userConfig.chainId);
 
-  // Validate paymaster configuration - all or none must be provided
-  const hasPaymasterUrl = !!userConfig.paymasterUrl;
-  const hasPaymasterAddress = !!userConfig.paymasterAddress;
-  const hasPaymasterToken = !!userConfig.paymasterToken;
+	// Validate paymaster configuration - all or none must be provided
+	const hasPaymasterUrl = !!userConfig.paymasterUrl;
+	const hasPaymasterAddress = !!userConfig.paymasterAddress;
+	const hasPaymasterToken = !!userConfig.paymasterToken;
 
-  const paymasterFieldsProvided = [
-    hasPaymasterUrl,
-    hasPaymasterAddress,
-    hasPaymasterToken,
-  ].filter(Boolean).length;
+	const paymasterFieldsProvided = [hasPaymasterUrl, hasPaymasterAddress, hasPaymasterToken].filter(Boolean).length;
 
-  if (paymasterFieldsProvided > 0 && paymasterFieldsProvided < 3) {
-    const missing: string[] = [];
-    if (!hasPaymasterUrl) missing.push("paymasterUrl");
-    if (!hasPaymasterAddress) missing.push("paymasterAddress");
-    if (!hasPaymasterToken) missing.push("paymasterToken");
+	if (paymasterFieldsProvided > 0 && paymasterFieldsProvided < 3) {
+		const missing: string[] = [];
+		if (!hasPaymasterUrl) missing.push("paymasterUrl");
+		if (!hasPaymasterAddress) missing.push("paymasterAddress");
+		if (!hasPaymasterToken) missing.push("paymasterToken");
 
-    throw new Error(
-      `Incomplete paymaster configuration. To use a paymaster, you must provide all three fields: ` +
-        `paymasterUrl, paymasterAddress, and paymasterToken. Missing: ${missing.join(", ")}`
-    );
-  }
+		throw new Error(
+			`Incomplete paymaster configuration. To use a paymaster, you must provide all three fields: ` +
+				`paymasterUrl, paymasterAddress, and paymasterToken. Missing: ${missing.join(", ")}`,
+		);
+	}
 
-  const config: QssnWalletConfig = {
-    chainId: userConfig.chainId,
-    provider: userConfig.provider,
-    bundlerUrl: userConfig.bundlerUrl,
-    entryPointAddress: preset.entryPointAddress,
-    factoryAddress: preset.factoryAddress,
-    mldsaSecurityLevel: userConfig.mldsaSecurityLevel,
-    transferMaxFee: userConfig.transferMaxFee,
-  };
+	const config: QssnWalletConfig = {
+		chainId: userConfig.chainId,
+		provider: userConfig.provider,
+		bundlerUrl: userConfig.bundlerUrl,
+		entryPointAddress: preset.entryPointAddress,
+		factoryAddress: preset.factoryAddress,
+		mldsaSecurityLevel: userConfig.mldsaSecurityLevel,
+		transferMaxFee: userConfig.transferMaxFee,
+	};
 
-  // Add paymaster configuration if all fields are provided
-  if (paymasterFieldsProvided === 3) {
-    config.paymasterUrl = userConfig.paymasterUrl;
-    config.paymasterAddress = userConfig.paymasterAddress;
-    config.paymasterToken = userConfig.paymasterToken;
-  }
+	// Add paymaster configuration if all fields are provided
+	if (paymasterFieldsProvided === 3) {
+		config.paymasterUrl = userConfig.paymasterUrl;
+		config.paymasterAddress = userConfig.paymasterAddress;
+		config.paymasterToken = userConfig.paymasterToken;
+	}
 
-  return config;
+	return config;
 }
