@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { Contract, JsonRpcProvider, BrowserProvider, Interface, toBeHex, } from "ethers";
+import { Contract, JsonRpcProvider, BrowserProvider, Interface, toBeHex } from "ethers";
 import { WalletAccountReadOnlyEvm } from "./wallet-account-read-only-evm.js";
 // ABIs for contract interactions
 const FACTORY_ABI = [
@@ -29,8 +29,8 @@ export class WalletAccountReadOnlyQssn {
         this._walletAddress = undefined;
         this._ecdsaOwner = ecdsaOwner;
         this._mldsaPublicKey = mldsaPublicKey;
-        if (!config.factoryAddress) {
-            throw new Error("factoryAddress is required in config");
+        if (!config.walletFactoryAddress) {
+            throw new Error("walletFactoryAddress is required in config");
         }
     }
     /**
@@ -41,7 +41,7 @@ export class WalletAccountReadOnlyQssn {
             return this._walletAddress;
         }
         const provider = await this._getProvider();
-        const factory = new Contract(this._config.factoryAddress, FACTORY_ABI, provider);
+        const factory = new Contract(this._config.walletFactoryAddress, FACTORY_ABI, provider);
         const mldsaPublicKeyHex = "0x" + Buffer.from(this._mldsaPublicKey).toString("hex");
         this._walletAddress = await factory.getWalletAddress(mldsaPublicKeyHex, this._ecdsaOwner);
         return this._walletAddress;
@@ -123,9 +123,7 @@ export class WalletAccountReadOnlyQssn {
         let tx;
         if (token) {
             // ERC-20 token transfer
-            const iface = new Interface([
-                "function transfer(address to, uint256 amount) returns (bool)",
-            ]);
+            const iface = new Interface(["function transfer(address to, uint256 amount) returns (bool)"]);
             tx = {
                 to: token,
                 value: 0,
@@ -221,15 +219,12 @@ export class WalletAccountReadOnlyQssn {
         let factory = null;
         let factoryData = null;
         if (!isDeployed) {
-            factory = this._config.factoryAddress;
+            factory = this._config.walletFactoryAddress;
             const factoryInterface = new Interface([
                 "function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)",
             ]);
             const mldsaPublicKeyHex = "0x" + Buffer.from(this._mldsaPublicKey).toString("hex");
-            factoryData = factoryInterface.encodeFunctionData("createWallet", [
-                mldsaPublicKeyHex,
-                this._ecdsaOwner,
-            ]);
+            factoryData = factoryInterface.encodeFunctionData("createWallet", [mldsaPublicKeyHex, this._ecdsaOwner]);
         }
         // Encode callData for execute function
         let callData;
@@ -237,11 +232,7 @@ export class WalletAccountReadOnlyQssn {
             const wallet = new Interface([
                 "function execute(address target, uint256 value, bytes calldata data) external",
             ]);
-            callData = wallet.encodeFunctionData("execute", [
-                txs[0].to,
-                txs[0].value || 0,
-                txs[0].data || "0x",
-            ]);
+            callData = wallet.encodeFunctionData("execute", [txs[0].to, txs[0].value || 0, txs[0].data || "0x"]);
         }
         else {
             const wallet = new Interface([
@@ -275,10 +266,6 @@ export class WalletAccountReadOnlyQssn {
             userOp.factoryData = factoryData;
         }
         // Query bundler for gas estimates
-        console.log("[QSSN SDK] Making gas estimation call:");
-        console.log("[QSSN SDK] - Bundler URL:", this._config.bundlerUrl);
-        console.log("[QSSN SDK] - EntryPoint Address:", this._config.entryPointAddress);
-        console.log("[QSSN SDK] - UserOp Sender:", userOp.sender);
         const response = await fetch(this._config.bundlerUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -290,10 +277,7 @@ export class WalletAccountReadOnlyQssn {
             }),
         });
         const result = (await response.json());
-        console.log("[QSSN SDK] Gas estimation response:", result);
         if (result.error) {
-            console.error("[QSSN SDK] Gas estimation error:", result.error.message);
-            console.error("[QSSN SDK] Full error response:", result);
             throw new Error(result.error.message);
         }
         if (!result.result) {
@@ -305,9 +289,7 @@ export class WalletAccountReadOnlyQssn {
         // Otherwise fall back to sum of components
         const totalGas = totalGasEstimate
             ? BigInt(totalGasEstimate)
-            : BigInt(callGasLimit) +
-                BigInt(verificationGasLimit) +
-                BigInt(preVerificationGas);
+            : BigInt(callGasLimit) + BigInt(verificationGasLimit) + BigInt(preVerificationGas);
         const gasCostInWei = totalGas * maxFeePerGas;
         return {
             fee: gasCostInWei,

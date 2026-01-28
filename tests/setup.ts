@@ -3,7 +3,7 @@
  */
 
 import { beforeAll } from "vitest";
-import { TEST_CONFIG } from "./fixtures/test-config";
+import { TEST_CONFIG } from "./fixtures/test-config.js";
 
 // Set test environment variables
 process.env.NODE_ENV = "test";
@@ -32,7 +32,7 @@ async function checkAnvilConnection(): Promise<boolean> {
 			return false;
 		}
 
-		const result = await response.json();
+		const result = (await response.json()) as { error?: unknown };
 		return !result.error;
 	} catch {
 		return false;
@@ -63,7 +63,7 @@ async function checkBundlerConnection(): Promise<boolean> {
 			return false;
 		}
 
-		const result = await response.json();
+		const result = (await response.json()) as { error?: unknown };
 		return !result.error;
 	} catch {
 		return false;

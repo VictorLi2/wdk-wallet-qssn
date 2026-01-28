@@ -16,18 +16,16 @@ import type { ChainPreset, QssnUserConfig, QssnWalletConfig } from "../types.js"
 
 /**
  * Preset configurations for QSSN wallets by chain ID.
- * Users need to provide chainId, provider, and bundlerUrl - contract addresses are preset.
+ * Users need to provide chainId, provider, bundlerUrl, and walletFactoryAddress - only entryPointAddress is preset.
  */
 export const QSSN_CONFIG_PRESETS: Record<number, ChainPreset> = {
 	// Anvil Local Testnet
 	31337: {
 		entryPointAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-		factoryAddress: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
 	},
 	// Sepolia Testnet
 	11155111: {
 		entryPointAddress: "0x807FaEf54195dd426c51909A007b93e2d5E44085",
-		factoryAddress: "0x7402F6bD0943917A93F09F0BAd4168D30b9119a5",
 	},
 };
 
@@ -49,9 +47,9 @@ export function getPresetConfig(chainId: number): ChainPreset {
 
 /**
  * Merges user config with preset configuration.
- * Required: chainId, provider, bundlerUrl
+ * Required: chainId, provider, bundlerUrl, walletFactoryAddress
  * Optional: mldsaSecurityLevel, transferMaxFee, paymasterUrl, paymasterAddress, paymasterToken
- * Preset values (entryPointAddress, factoryAddress) cannot be overridden.
+ * Preset value for entryPointAddress cannot be overridden.
  */
 export function createQssnConfig(userConfig: QssnUserConfig): QssnWalletConfig {
 	if (!userConfig.chainId) {
@@ -64,6 +62,10 @@ export function createQssnConfig(userConfig: QssnUserConfig): QssnWalletConfig {
 
 	if (!userConfig.bundlerUrl) {
 		throw new Error("bundlerUrl is required in config");
+	}
+
+	if (!userConfig.walletFactoryAddress) {
+		throw new Error("walletFactoryAddress is required in config");
 	}
 
 	const preset = getPresetConfig(userConfig.chainId);
@@ -92,7 +94,7 @@ export function createQssnConfig(userConfig: QssnUserConfig): QssnWalletConfig {
 		provider: userConfig.provider,
 		bundlerUrl: userConfig.bundlerUrl,
 		entryPointAddress: preset.entryPointAddress,
-		factoryAddress: preset.factoryAddress,
+		walletFactoryAddress: userConfig.walletFactoryAddress,
 		mldsaSecurityLevel: userConfig.mldsaSecurityLevel,
 		transferMaxFee: userConfig.transferMaxFee,
 	};

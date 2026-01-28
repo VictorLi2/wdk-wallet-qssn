@@ -32,6 +32,7 @@ describeIntegration("Integration: Gas Estimation Accuracy", { timeout: 120000 },
 			chainId: TEST_CONFIG.chainId,
 			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
+			walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 		});
 
 		const account = await walletManager.getAccount(0);
@@ -89,6 +90,7 @@ describeIntegration("Integration: Gas Estimation Accuracy", { timeout: 120000 },
 			chainId: TEST_CONFIG.chainId,
 			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
+			walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 		});
 
 		const account = await walletManager.getAccount(0);
@@ -160,6 +162,7 @@ describeIntegration("Integration: Gas Estimation Accuracy", { timeout: 120000 },
 			chainId: TEST_CONFIG.chainId,
 			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
+			walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 		});
 
 		const account = await walletManager.getAccount(0);
@@ -200,6 +203,7 @@ describeIntegration("Integration: Gas Estimation Accuracy", { timeout: 120000 },
 			chainId: TEST_CONFIG.chainId,
 			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
+			walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 		});
 
 		const account = await walletManager.getAccount(0);

@@ -18,7 +18,7 @@ export declare class WalletManagerQssn {
     protected _accounts: Record<string, WalletAccountQssn>;
     /**
      * Creates a new quantum-safe wallet manager with dual-key (ECDSA + ML-DSA) support for ERC-4337.
-     * bundlerUrl, entryPointAddress, and factoryAddress are automatically set based on chainId.
+     * entryPointAddress is automatically set based on chainId. walletFactoryAddress uses preset or user override.
      *
      * @param ecdsaSeed - The wallet's BIP-39 seed phrase or seed bytes for ECDSA keys.
      * @param mldsaSeed - The wallet's BIP-39 seed phrase or seed bytes for ML-DSA keys.

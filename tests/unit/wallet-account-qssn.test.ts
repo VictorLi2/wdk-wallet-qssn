@@ -13,7 +13,7 @@ describe("WalletAccountQssn", () => {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
 				entryPointAddress: TEST_CONFIG.entryPointAddress,
-				factoryAddress: TEST_CONFIG.accountFactoryAddress,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
@@ -27,7 +27,7 @@ describe("WalletAccountQssn", () => {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
 				entryPointAddress: TEST_CONFIG.entryPointAddress,
-				factoryAddress: TEST_CONFIG.accountFactoryAddress,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
@@ -35,7 +35,7 @@ describe("WalletAccountQssn", () => {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
 				entryPointAddress: TEST_CONFIG.entryPointAddress,
-				factoryAddress: TEST_CONFIG.accountFactoryAddress,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
@@ -49,7 +49,7 @@ describe("WalletAccountQssn", () => {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
 				entryPointAddress: TEST_CONFIG.entryPointAddress,
-				factoryAddress: TEST_CONFIG.accountFactoryAddress,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
@@ -57,7 +57,7 @@ describe("WalletAccountQssn", () => {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
 				entryPointAddress: TEST_CONFIG.entryPointAddress,
-				factoryAddress: TEST_CONFIG.accountFactoryAddress,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
@@ -73,7 +73,7 @@ describe("WalletAccountQssn", () => {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
 				entryPointAddress: TEST_CONFIG.entryPointAddress,
-				factoryAddress: TEST_CONFIG.accountFactoryAddress,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
@@ -86,7 +86,7 @@ describe("WalletAccountQssn", () => {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
 				entryPointAddress: TEST_CONFIG.entryPointAddress,
-				factoryAddress: TEST_CONFIG.accountFactoryAddress,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 
@@ -102,7 +102,7 @@ describe("WalletAccountQssn", () => {
 				chainId: TEST_CONFIG.chainId,
 				provider: TEST_CONFIG.rpcUrl,
 				entryPointAddress: TEST_CONFIG.entryPointAddress,
-				factoryAddress: TEST_CONFIG.accountFactoryAddress,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 			});
 

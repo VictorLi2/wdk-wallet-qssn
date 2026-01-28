@@ -119,8 +119,8 @@ export interface QssnWalletConfig {
 	bundlerUrl: string;
 	/** EntryPoint contract address (set via preset) */
 	entryPointAddress: string;
-	/** QssnWalletFactory contract address (set via preset) */
-	factoryAddress: string;
+	/** QssnWalletFactory contract address (user override or preset) */
+	walletFactoryAddress: string;
 	/** Paymaster service URL (optional) */
 	paymasterUrl?: string;
 	/** Paymaster contract address (optional) */
@@ -149,6 +149,8 @@ export interface QssnUserConfig {
 	provider: string | Eip1193Provider;
 	/** Bundler service URL */
 	bundlerUrl: string;
+	/** QssnWalletFactory contract address */
+	walletFactoryAddress: string;
 	/** Maximum fee for transfer operations */
 	transferMaxFee?: bigint | number;
 	/** ML-DSA security level (44, 65, or 87). Default: 65 */
@@ -172,7 +174,6 @@ export interface QssnUserConfig {
  */
 export interface ChainPreset {
 	entryPointAddress: string;
-	factoryAddress: string;
 }
 
 /**

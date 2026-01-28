@@ -45,13 +45,10 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         this._mldsaAccount = mldsaAccount;
         // Derive the same wallet for raw ECDSA signing without Ethereum Signed Message prefix
         const fullPath = `m/44'/60'/${path}`;
-        const seedBytes = typeof ecdsaSeed === "string"
-            ? Mnemonic.fromPhrase(ecdsaSeed).computeSeed()
-            : ecdsaSeed;
+        const seedBytes = typeof ecdsaSeed === "string" ? Mnemonic.fromPhrase(ecdsaSeed).computeSeed() : ecdsaSeed;
         this._ecdsaWallet = HDNodeWallet.fromSeed(seedBytes).derivePath(fullPath);
         // Verify addresses match
-        if (this._ecdsaWallet.address.toLowerCase() !==
-            ownerAccount._address.toLowerCase()) {
+        if (this._ecdsaWallet.address.toLowerCase() !== ownerAccount._address.toLowerCase()) {
             throw new Error(`ECDSA wallet address mismatch: ${this._ecdsaWallet.address} !== ${ownerAccount._address}`);
         }
     }
@@ -101,16 +98,13 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         }
         const { token, spender, amount } = options;
         const chainId = await this._getChainId();
-        if (chainId === 1n &&
-            token.toLowerCase() === USDT_MAINNET_ADDRESS.toLowerCase()) {
+        if (chainId === 1n && token.toLowerCase() === USDT_MAINNET_ADDRESS.toLowerCase()) {
             const currentAllowance = await this.getAllowance(token, spender);
             if (currentAllowance > 0n && BigInt(amount) > 0n) {
                 throw new Error('USDT requires the current allowance to be reset to 0 before setting a new non-zero value. Please send an "approve" transaction with an amount of 0 first.');
             }
         }
-        const abi = [
-            "function approve(address spender, uint256 amount) returns (bool)",
-        ];
+        const abi = ["function approve(address spender, uint256 amount) returns (bool)"];
         const contract = new Contract(token, abi, this._ownerAccount._provider);
         const tx = {
             to: token,
@@ -224,9 +218,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         }
         else {
             // No cache - fetch fresh (fallback for direct _buildUserOp calls)
-            const entryPoint = new Contract(this._config.entryPointAddress, [
-                "function getNonce(address sender, uint192 key) view returns (uint256)",
-            ], provider);
+            const entryPoint = new Contract(this._config.entryPointAddress, ["function getNonce(address sender, uint192 key) view returns (uint256)"], provider);
             // Fetch all RPC data in parallel
             const [fetchedNonce, code, fetchedFeeData] = await Promise.all([
                 entryPoint.getNonce(walletAddress, 0),
@@ -247,7 +239,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         let factory = null;
         let factoryData = null;
         if (!isDeployed) {
-            factory = this._config.factoryAddress;
+            factory = this._config.walletFactoryAddress;
             const factoryInterface = new Interface([
                 "function createWallet(bytes calldata mldsaPublicKey, address ecdsaOwner) returns (address)",
             ]);
@@ -263,11 +255,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
             const wallet = new Interface([
                 "function execute(address target, uint256 value, bytes calldata data) external",
             ]);
-            callData = wallet.encodeFunctionData("execute", [
-                txs[0].to,
-                txs[0].value || 0,
-                txs[0].data || "0x",
-            ]);
+            callData = wallet.encodeFunctionData("execute", [txs[0].to, txs[0].value || 0, txs[0].data || "0x"]);
         }
         else {
             // For multiple transactions, use executeBatch
@@ -304,9 +292,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         const basePreVerificationGas = gasLimits?.preVerificationGas || BigInt(isDeployed ? 150000 : 500000);
         const estimatedVerificationGas = gasLimits?.verificationGasLimit || BigInt(isDeployed ? 196608 : 1000000);
         // Enforce minimum for QSSN wallets (dummy sig estimation underestimates real sig gas)
-        const baseVerificationGasLimit = estimatedVerificationGas > QSSN_MIN_VERIFICATION_GAS
-            ? estimatedVerificationGas
-            : QSSN_MIN_VERIFICATION_GAS;
+        const baseVerificationGasLimit = estimatedVerificationGas > QSSN_MIN_VERIFICATION_GAS ? estimatedVerificationGas : QSSN_MIN_VERIFICATION_GAS;
         const baseCallGasLimit = gasLimits?.callGasLimit || BigInt(1000000);
         // Apply buffer to all gas limits
         const preVerificationGas = applyBuffer(basePreVerificationGas);
@@ -340,9 +326,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         // UserOp is in v0.9 unpacked format, we need to pack it for hashing
         // Calculate hash exactly as EntryPoint v0.9 does:
         // Pack initCode: factory + factoryData (or '0x' if deployed)
-        const initCode = userOp.factory
-            ? concat([userOp.factory, userOp.factoryData || "0x"])
-            : "0x";
+        const initCode = userOp.factory ? concat([userOp.factory, userOp.factoryData || "0x"]) : "0x";
         // Pack accountGasLimits: verificationGasLimit (high 128) + callGasLimit (low 128)
         const accountGasLimits = concat([
             zeroPadValue(toBeArray(BigInt(userOp.verificationGasLimit)), 16),
@@ -356,17 +340,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         // EIP-712 type hash for PackedUserOperation
         const PACKED_USEROP_TYPEHASH = keccak256(toUtf8Bytes("PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)"));
         // Step 1: Encode the struct hash (EIP-712 structHash)
-        const structHash = keccak256(AbiCoder.defaultAbiCoder().encode([
-            "bytes32",
-            "address",
-            "uint256",
-            "bytes32",
-            "bytes32",
-            "bytes32",
-            "uint256",
-            "bytes32",
-            "bytes32",
-        ], [
+        const structHash = keccak256(AbiCoder.defaultAbiCoder().encode(["bytes32", "address", "uint256", "bytes32", "bytes32", "bytes32", "uint256", "bytes32", "bytes32"], [
             PACKED_USEROP_TYPEHASH,
             userOp.sender,
             userOp.nonce,
@@ -400,32 +374,18 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         const sig = Signature.from(ecdsaSig);
         // OpenZeppelin expects r (32 bytes) + s (32 bytes) + v (1 byte) = 65 bytes total
         // Construct manually to ensure correct format
-        const ecdsaSignature = concat([
-            zeroPadValue(sig.r, 32),
-            zeroPadValue(sig.s, 32),
-            toBeArray(sig.v),
-        ]);
+        const ecdsaSignature = concat([zeroPadValue(sig.r, 32), zeroPadValue(sig.s, 32), toBeArray(sig.v)]);
         // Sign with ML-DSA (returns hex string)
         const mldsaSignatureHex = await this._mldsaAccount.sign(getBytes(userOpHash));
         const mldsaPublicKeyHex = this._mldsaAccount.publicKeyHex;
         // Pack QSSN signature: abi.encode(ecdsaSignature, mldsaSignature, mldsaPublicKey, ecdsaOwner)
         const abiCoder = new AbiCoder();
-        userOp.signature = abiCoder.encode(["bytes", "bytes", "bytes", "address"], [
-            ecdsaSignature,
-            mldsaSignatureHex,
-            mldsaPublicKeyHex,
-            this._ownerAccount._address,
-        ]);
+        userOp.signature = abiCoder.encode(["bytes", "bytes", "bytes", "address"], [ecdsaSignature, mldsaSignatureHex, mldsaPublicKeyHex, this._ownerAccount._address]);
         // Send v0.9 PackedUserOperation to bundler
-        const bundlerParams = [
-            userOp,
-            this._config.entryPointAddress,
-        ];
+        const bundlerParams = [userOp, this._config.entryPointAddress];
         // Add paymaster options if configured and provided (for future gas sponsorship)
         // Options contain paymasterTokenAddress and amountToApprove from sendTransaction/transfer
-        if (options &&
-            this._config.paymasterUrl &&
-            this._config.paymasterAddress) {
+        if (options && this._config.paymasterUrl && this._config.paymasterAddress) {
             bundlerParams.push({
                 paymasterUrl: this._config.paymasterUrl,
                 paymasterAddress: this._config.paymasterAddress,

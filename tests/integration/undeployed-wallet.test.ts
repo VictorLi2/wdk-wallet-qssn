@@ -31,6 +31,7 @@ describeIntegration("Integration: Undeployed Wallet Validation", { timeout: 6000
 			chainId: TEST_CONFIG.chainId,
 			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
+			walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 		});
 
 		const account = await walletManager.getAccount(0);
@@ -49,6 +50,7 @@ describeIntegration("Integration: Undeployed Wallet Validation", { timeout: 6000
 			chainId: TEST_CONFIG.chainId,
 			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
+			walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 		});
 
 		const account = await walletManager.getAccount(0);
@@ -90,6 +92,7 @@ describeIntegration("Integration: Undeployed Wallet Validation", { timeout: 6000
 			chainId: TEST_CONFIG.chainId,
 			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
+			walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 		});
 
 		const account = await walletManager.getAccount(0);
@@ -124,6 +127,7 @@ describeIntegration("Integration: Undeployed Wallet Validation", { timeout: 6000
 			chainId: TEST_CONFIG.chainId,
 			bundlerUrl: TEST_CONFIG.bundlerUrl,
 			provider: TEST_CONFIG.rpcUrl,
+			walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 		});
 
 		const account = await walletManager.getAccount(0);
@@ -169,6 +173,7 @@ describeIntegration("Integration: Undeployed Wallet Validation", { timeout: 6000
 				chainId: TEST_CONFIG.chainId,
 				bundlerUrl: TEST_CONFIG.bundlerUrl,
 				provider: TEST_CONFIG.rpcUrl,
+				walletFactoryAddress: TEST_CONFIG.walletFactoryAddress,
 			});
 
 			const account = await walletManager.getAccount(0);
