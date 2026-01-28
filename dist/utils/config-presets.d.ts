@@ -1,7 +1,7 @@
 import type { ChainPreset, QssnUserConfig, QssnWalletConfig } from "../types.js";
 /**
  * Preset configurations for QSSN wallets by chain ID.
- * Users only need to provide chainId and provider - all other values are preset.
+ * Users need to provide chainId, provider, and bundlerUrl - contract addresses are preset.
  */
 export declare const QSSN_CONFIG_PRESETS: Record<number, ChainPreset>;
 /**
@@ -10,9 +10,9 @@ export declare const QSSN_CONFIG_PRESETS: Record<number, ChainPreset>;
 export declare function getPresetConfig(chainId: number): ChainPreset;
 /**
  * Merges user config with preset configuration.
- * Required: chainId, provider
+ * Required: chainId, provider, bundlerUrl
  * Optional: mldsaSecurityLevel, transferMaxFee, paymasterUrl, paymasterAddress, paymasterToken
- * Preset values (bundlerUrl, entryPointAddress, factoryAddress) cannot be overridden.
+ * Preset values (entryPointAddress, factoryAddress) cannot be overridden.
  */
 export declare function createQssnConfig(userConfig: QssnUserConfig): QssnWalletConfig;
 //# sourceMappingURL=config-presets.d.ts.map

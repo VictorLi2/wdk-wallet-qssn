@@ -13,18 +13,16 @@
 // limitations under the License.
 /**
  * Preset configurations for QSSN wallets by chain ID.
- * Users only need to provide chainId and provider - all other values are preset.
+ * Users need to provide chainId, provider, and bundlerUrl - contract addresses are preset.
  */
 export const QSSN_CONFIG_PRESETS = {
     // Anvil Local Testnet
     31337: {
-        bundlerUrl: "http://localhost:14337/rpc",
         entryPointAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
         factoryAddress: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
     },
     // Sepolia Testnet
     11155111: {
-        bundlerUrl: "https://qssn-bundler-v2-production.up.railway.app/rpc",
         entryPointAddress: "0x807FaEf54195dd426c51909A007b93e2d5E44085",
         factoryAddress: "0x7402F6bD0943917A93F09F0BAd4168D30b9119a5",
     },
@@ -42,9 +40,9 @@ export function getPresetConfig(chainId) {
 }
 /**
  * Merges user config with preset configuration.
- * Required: chainId, provider
+ * Required: chainId, provider, bundlerUrl
  * Optional: mldsaSecurityLevel, transferMaxFee, paymasterUrl, paymasterAddress, paymasterToken
- * Preset values (bundlerUrl, entryPointAddress, factoryAddress) cannot be overridden.
+ * Preset values (entryPointAddress, factoryAddress) cannot be overridden.
  */
 export function createQssnConfig(userConfig) {
     if (!userConfig.chainId) {
@@ -52,6 +50,9 @@ export function createQssnConfig(userConfig) {
     }
     if (!userConfig.provider) {
         throw new Error("provider is required in config");
+    }
+    if (!userConfig.bundlerUrl) {
+        throw new Error("bundlerUrl is required in config");
     }
     const preset = getPresetConfig(userConfig.chainId);
     // Validate paymaster configuration - all or none must be provided
@@ -77,7 +78,7 @@ export function createQssnConfig(userConfig) {
     const config = {
         chainId: userConfig.chainId,
         provider: userConfig.provider,
-        bundlerUrl: preset.bundlerUrl,
+        bundlerUrl: userConfig.bundlerUrl,
         entryPointAddress: preset.entryPointAddress,
         factoryAddress: preset.factoryAddress,
         mldsaSecurityLevel: userConfig.mldsaSecurityLevel,

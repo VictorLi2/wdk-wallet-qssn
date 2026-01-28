@@ -113,13 +113,15 @@ export interface QssnWalletConfig {
     gasBufferPercent?: number;
 }
 /**
- * User-provided configuration (chainId and provider required, presets applied automatically)
+ * User-provided configuration (chainId, provider, and bundlerUrl required, presets applied automatically)
  */
 export interface QssnUserConfig {
     /** The blockchain's chain ID */
     chainId: number;
     /** RPC provider URL or EIP-1193 provider instance */
     provider: string | Eip1193Provider;
+    /** Bundler service URL */
+    bundlerUrl: string;
     /** Maximum fee for transfer operations */
     transferMaxFee?: bigint | number;
     /** ML-DSA security level (44, 65, or 87). Default: 65 */
@@ -141,7 +143,6 @@ export interface QssnUserConfig {
  * Chain preset configuration
  */
 export interface ChainPreset {
-    bundlerUrl: string;
     entryPointAddress: string;
     factoryAddress: string;
 }
