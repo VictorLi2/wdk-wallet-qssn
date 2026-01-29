@@ -89,7 +89,7 @@ export class WalletAccountReadOnlyQssn {
             }
             // Fallback: Apply percentage-based buffer if bundler didn't return totalGasEstimate
             // This ensures the quote matches what will actually be submitted
-            const gasBufferPercent = this._config.gasBufferPercent ?? 100;
+            const gasBufferPercent = this._config.gasBufferPercent ?? 20;
             const bufferMultiplier = BigInt(100 + gasBufferPercent);
             const applyBuffer = (gas) => (gas * bufferMultiplier) / 100n;
             // Apply buffer to all gas limits
