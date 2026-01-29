@@ -277,7 +277,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
         // Gas buffer percentage (default 40% = adds 40% on top of bundler estimates)
         // QSSN first UserOps (wallet deployment) need ~12% minimum buffer, we use 40% for safety
         // Regular UserOps on deployed wallets may need less buffer
-        const gasBufferPercent = this._config.gasBufferPercent ?? 40;
+        const gasBufferPercent = this._config.gasBufferPercent ?? 100;
         const bufferMultiplier = BigInt(100 + gasBufferPercent);
         // Helper to apply buffer to a gas value
         const applyBuffer = (gas) => (gas * bufferMultiplier) / 100n;
