@@ -12,15 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  ethers,
-  Wallet,
-  HDNodeWallet,
-  JsonRpcProvider,
-  Provider,
-  Mnemonic,
-} from "ethers";
-import type { Eip1193Provider } from "ethers";
+import type { Eip1193Provider, Provider } from "ethers";
+import { ethers, HDNodeWallet, JsonRpcProvider, Mnemonic, type Wallet } from "ethers";
 import type { KeyPair, QssnWalletConfig } from "./types.js";
 
 /**
@@ -29,145 +22,129 @@ import type { KeyPair, QssnWalletConfig } from "./types.js";
  * Works in browsers, Node.js, and all JavaScript environments.
  */
 export class WalletAccountEvmJs {
-  public _address: string;
-  public _provider: Provider | null;
-  private _index: number;
-  private _path: string;
-  private _config: QssnWalletConfig;
-  private _wallet: Wallet | HDNodeWallet;
+	public _address: string;
+	public _provider: Provider | null;
+	private _index: number;
+	private _path: string;
+	private _config: QssnWalletConfig;
+	private _wallet: Wallet | HDNodeWallet;
 
-  constructor(
-    seed: string | Uint8Array,
-    path: string,
-    config: QssnWalletConfig
-  ) {
-    // Parse the path to extract the index
-    const pathParts = path.split("/");
-    this._index = parseInt(
-      pathParts[pathParts.length - 1].replace("'", ""),
-      10
-    );
-    this._path = path;
-    this._config = config;
+	constructor(seed: string | Uint8Array, path: string, config: QssnWalletConfig) {
+		// Parse the path to extract the index
+		const pathParts = path.split("/");
+		this._index = Number.parseInt(pathParts[pathParts.length - 1].replace("'", ""), 10);
+		this._path = path;
+		this._config = config;
 
-    // Create full BIP-44 path
-    const fullPath = `m/44'/60'/${path}`;
+		// Create full BIP-44 path
+		const fullPath = `m/44'/60'/${path}`;
 
-    // Derive wallet from seed
-    // For mnemonic: convert to seed bytes first to get master node at depth 0
-    // For seed bytes: fromSeed gives master node, then derive full path
-    const seedBytes =
-      typeof seed === "string"
-        ? Mnemonic.fromPhrase(seed).computeSeed()
-        : seed;
-    this._wallet = HDNodeWallet.fromSeed(seedBytes).derivePath(fullPath);
+		// Derive wallet from seed
+		// For mnemonic: convert to seed bytes first to get master node at depth 0
+		// For seed bytes: fromSeed gives master node, then derive full path
+		const seedBytes = typeof seed === "string" ? Mnemonic.fromPhrase(seed).computeSeed() : seed;
+		this._wallet = HDNodeWallet.fromSeed(seedBytes).derivePath(fullPath);
 
-    this._address = this._wallet.address;
+		this._address = this._wallet.address;
 
-    // Setup provider if available
-    if (config.provider) {
-      if (typeof config.provider === "string") {
-        this._provider = new JsonRpcProvider(config.provider);
-      } else {
-        this._provider = new ethers.BrowserProvider(
-          config.provider as Eip1193Provider
-        );
-      }
-      this._wallet = this._wallet.connect(this._provider);
-    } else {
-      this._provider = null;
-    }
-  }
+		// Setup provider if available
+		if (config.provider) {
+			if (typeof config.provider === "string") {
+				this._provider = new JsonRpcProvider(config.provider);
+			} else {
+				this._provider = new ethers.BrowserProvider(config.provider as Eip1193Provider);
+			}
+			this._wallet = this._wallet.connect(this._provider);
+		} else {
+			this._provider = null;
+		}
+	}
 
-  /**
-   * The derivation path's index of this account.
-   */
-  get index(): number {
-    return this._index;
-  }
+	/**
+	 * The derivation path's index of this account.
+	 */
+	get index(): number {
+		return this._index;
+	}
 
-  /**
-   * The derivation path of this account.
-   */
-  get path(): string {
-    return this._path;
-  }
+	/**
+	 * The derivation path of this account.
+	 */
+	get path(): string {
+		return this._path;
+	}
 
-  /**
-   * The account's key pair (address and private key).
-   */
-  get keyPair(): KeyPair {
-    return {
-      address: this._wallet.address,
-      privateKey: this._wallet.privateKey,
-    };
-  }
+	/**
+	 * The account's key pair (address and private key).
+	 */
+	get keyPair(): KeyPair {
+		return {
+			address: this._wallet.address,
+			privateKey: this._wallet.privateKey,
+		};
+	}
 
-  /**
-   * Get the account's address.
-   */
-  async getAddress(): Promise<string> {
-    return this._wallet.address;
-  }
+	/**
+	 * Get the account's address.
+	 */
+	async getAddress(): Promise<string> {
+		return this._wallet.address;
+	}
 
-  /**
-   * Signs a message with ECDSA (Ethereum Signed Message format).
-   */
-  async sign(message: string): Promise<string> {
-    return await this._wallet.signMessage(message);
-  }
+	/**
+	 * Signs a message with ECDSA (Ethereum Signed Message format).
+	 */
+	async sign(message: string): Promise<string> {
+		return await this._wallet.signMessage(message);
+	}
 
-  /**
-   * Verifies a signature against a message.
-   */
-  async verify(message: string, signature: string): Promise<boolean> {
-    try {
-      const recoveredAddress = ethers.verifyMessage(message, signature);
-      return (
-        recoveredAddress.toLowerCase() === this._wallet.address.toLowerCase()
-      );
-    } catch {
-      return false;
-    }
-  }
+	/**
+	 * Verifies a signature against a message.
+	 */
+	async verify(message: string, signature: string): Promise<boolean> {
+		try {
+			const recoveredAddress = ethers.verifyMessage(message, signature);
+			return recoveredAddress.toLowerCase() === this._wallet.address.toLowerCase();
+		} catch {
+			return false;
+		}
+	}
 
-  /**
-   * Clean up resources.
-   */
-  dispose(): void {
-    // In the browser, we don't need to zero out memory
-    // This is here for API compatibility
-  }
+	/**
+	 * Clean up resources.
+	 */
+	dispose(): void {
+		// In the browser, we don't need to zero out memory
+		// This is here for API compatibility
+	}
 
-  /**
-   * Static helper to build a transfer transaction.
-   */
-  static _getTransferTransaction(options: {
-    to: string;
-    amount: bigint | number;
-    token?: string;
-  }): { to: string; value: bigint | number; data: string } {
-    const { to, amount, token } = options;
+	/**
+	 * Static helper to build a transfer transaction.
+	 */
+	static _getTransferTransaction(options: { to: string; amount: bigint | number; token?: string }): {
+		to: string;
+		value: bigint | number;
+		data: string;
+	} {
+		const { to, amount, token } = options;
 
-    if (token) {
-      // ERC-20 transfer
-      const iface = new ethers.Interface([
-        "function transfer(address to, uint256 amount) returns (bool)",
-      ]);
-      return {
-        to: token,
-        value: 0,
-        data: iface.encodeFunctionData("transfer", [to, amount]),
-      };
-    }
+		if (token) {
+			// ERC-20 transfer
+			const iface = new ethers.Interface(["function transfer(address to, uint256 amount) returns (bool)"]);
+			return {
+				to: token,
+				value: 0,
+				data: iface.encodeFunctionData("transfer", [to, amount]),
+			};
+		}
 
-    // Native ETH transfer
-    return {
-      to,
-      value: amount,
-      data: "0x",
-    };
-  }
+		// Native ETH transfer
+		return {
+			to,
+			value: amount,
+			data: "0x",
+		};
+	}
 }
 
 // Alias for compatibility

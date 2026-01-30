@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { Eip1193Provider, Provider } from "ethers";
 import { BrowserProvider, JsonRpcProvider } from "ethers";
-import type { Provider, Eip1193Provider } from "ethers";
-
-import { WalletAccountQssn } from "./wallet-account-qssn.js";
+import type { FeeRates, QssnUserConfig, QssnWalletConfig } from "./types.js";
 import { createQssnConfig } from "./utils/config-presets.js";
-import type { QssnUserConfig, QssnWalletConfig, FeeRates } from "./types.js";
+import { WalletAccountQssn } from "./wallet-account-qssn.js";
 
 // Fee rate multipliers (from @tetherto/wdk-wallet-evm)
 const FEE_RATE_NORMAL_MULTIPLIER = 100n;
@@ -61,9 +60,7 @@ export class WalletManagerQssn {
 
 		if (provider) {
 			this._provider =
-				typeof provider === "string"
-					? new JsonRpcProvider(provider)
-					: new BrowserProvider(provider as Eip1193Provider);
+				typeof provider === "string" ? new JsonRpcProvider(provider) : new BrowserProvider(provider as Eip1193Provider);
 		}
 	}
 

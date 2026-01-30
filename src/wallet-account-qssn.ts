@@ -12,43 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-	Contract,
-	keccak256,
-	AbiCoder,
-	ethers,
-	JsonRpcProvider,
-	BrowserProvider,
-	Interface,
-	toBeHex,
-	zeroPadValue,
-	toBeArray,
-	concat,
-	toUtf8Bytes,
-	getBytes,
-	Signature,
-	Wallet,
-	HDNodeWallet,
-	TypedDataEncoder,
-	Mnemonic,
-} from "ethers";
 import type { Eip1193Provider, FeeData } from "ethers";
-import { WalletAccountEvm } from "./wallet-account-evm.js";
-import { WalletAccountReadOnlyQssn } from "./wallet-account-read-only-qssn.js";
-import { WalletAccountMldsa } from "./wallet-account-mldsa.js";
+import {
+	AbiCoder,
+	BrowserProvider,
+	Contract,
+	concat,
+	ethers,
+	getBytes,
+	HDNodeWallet,
+	Interface,
+	JsonRpcProvider,
+	keccak256,
+	Mnemonic,
+	Signature,
+	TypedDataEncoder,
+	toBeArray,
+	toBeHex,
+	toUtf8Bytes,
+	Wallet,
+	zeroPadValue,
+} from "ethers";
 import type {
-	QssnWalletConfig,
+	ApproveOptions,
+	CachedRpcData,
+	DualSignature,
 	EvmTransaction,
+	GasLimits,
+	KeyPair,
+	PaymasterTokenConfig,
+	QssnWalletConfig,
 	TransactionResult,
 	TransferOptions,
 	TransferResult,
-	ApproveOptions,
-	KeyPair,
-	DualSignature,
-	GasLimits,
-	CachedRpcData,
-	PaymasterTokenConfig,
 } from "./types.js";
+import { WalletAccountEvm } from "./wallet-account-evm.js";
+import { WalletAccountMldsa } from "./wallet-account-mldsa.js";
+import { WalletAccountReadOnlyQssn } from "./wallet-account-read-only-qssn.js";
 
 const FEE_TOLERANCE_COEFFICIENT = 120n;
 
@@ -92,12 +92,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 	 * @param path - The BIP-44 derivation path (e.g. "0'/0/0").
 	 * @param config - The configuration object.
 	 */
-	constructor(
-		ecdsaSeed: string | Uint8Array,
-		mldsaSeed: string | Uint8Array,
-		path: string,
-		config: QssnWalletConfig,
-	) {
+	constructor(ecdsaSeed: string | Uint8Array, mldsaSeed: string | Uint8Array, path: string, config: QssnWalletConfig) {
 		// Create ECDSA account with standard Ethereum path
 		const ownerAccount = new WalletAccountEvm(ecdsaSeed, path, config);
 
@@ -314,19 +309,13 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 			const { provider } = this._config;
 
 			this._provider =
-				typeof provider === "string"
-					? new JsonRpcProvider(provider)
-					: new BrowserProvider(provider as Eip1193Provider);
+				typeof provider === "string" ? new JsonRpcProvider(provider) : new BrowserProvider(provider as Eip1193Provider);
 		}
 
 		return this._provider;
 	}
 
-	private async _buildUserOp(
-		txs: EvmTransaction[],
-		signature: string,
-		options?: UserOpBuildOptions,
-	): Promise<UserOp> {
+	private async _buildUserOp(txs: EvmTransaction[], signature: string, options?: UserOpBuildOptions): Promise<UserOp> {
 		const walletAddress = await this.getAddress();
 		const provider = await this._getProvider();
 
@@ -381,9 +370,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 		// Encode callData for execute function
 		let callData: string;
 		if (txs.length === 1) {
-			const wallet = new Interface([
-				"function execute(address target, uint256 value, bytes calldata data) external",
-			]);
+			const wallet = new Interface(["function execute(address target, uint256 value, bytes calldata data) external"]);
 			callData = wallet.encodeFunctionData("execute", [txs[0].to, txs[0].value || 0, txs[0].data || "0x"]);
 		} else {
 			// For multiple transactions, use executeBatch

@@ -33,9 +33,10 @@
 		"build": "tsc",
 		"clean": "rm -rf dist",
 		"prepublishOnly": "npm run clean && npm run build",
-		"lint": "eslint src --ext .ts",
-		"format": "prettier --write \"src/**/*.ts\"",
-		"format:check": "prettier --check \"src/**/*.ts\"",
+		"lint": "biome lint src/",
+		"format": "biome format --write src/",
+		"format:check": "biome format src/",
+		"prepare": "husky",
 		"typecheck": "tsc --noEmit && tsc --project tsconfig.test.json",
 		"test": "vitest run",
 		"test:watch": "vitest",
@@ -51,13 +52,18 @@
 		"ethers": "6.14.4"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.2.4",
 		"@types/node": "^20.10.0",
 		"@vitest/coverage-v8": "^2.1.8",
 		"dotenv": "^17.2.3",
-		"prettier": "^3.7.4",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.2.7",
 		"typescript": "^5.8.3",
 		"viem": "^2.44.4",
 		"vitest": "^2.1.8"
+	},
+	"lint-staged": {
+		"*.{js,ts,json}": "biome check --write --no-errors-on-unmatched"
 	},
 	"overrides": {
 		"axios": "1.12.2",

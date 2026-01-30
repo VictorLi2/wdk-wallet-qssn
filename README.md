@@ -703,26 +703,26 @@ This package works with any EVM-compatible blockchain that supports ERC-4337, in
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build TypeScript definitions
-npm run build:types
+pnpm build:types
 
 # Lint code
-npm run lint
+pnpm lint
 
 # Fix linting issues
-npm run lint:fix
+pnpm lint:fix
 ```
 
 ### Testing
 
 ```bash
 # Run tests
-npm test
+pnpm test
 
 # Run tests with coverage
-npm run test:coverage
+pnpm test:coverage
 ```
 
 ## 📜 License

@@ -13,255 +13,256 @@
 // limitations under the License.
 
 export interface WaitForUserOpOptions {
-  /** Timeout in milliseconds (default: 60000 = 60 seconds) */
-  timeoutMs?: number;
-  /** Polling interval for fallback in milliseconds (default: 1000) */
-  pollIntervalMs?: number;
+	/** Timeout in milliseconds (default: 60000 = 60 seconds) */
+	timeoutMs?: number;
+	/** Polling interval for fallback in milliseconds (default: 1000) */
+	pollIntervalMs?: number;
 }
 
 export interface UserOpResult {
-  success: boolean;
-  txHash?: string;
-  userOpHash: string;
-  error?: string;
+	success: boolean;
+	txHash?: string;
+	userOpHash: string;
+	error?: string;
 }
 
 /**
  * Wait for a UserOperation to be confirmed on-chain.
  * Uses WebSocket subscription for real-time updates, with automatic fallback to HTTP polling.
- * 
+ *
  * @param bundlerUrl - The bundler RPC URL (HTTP or WebSocket)
  * @param userOpHash - The UserOperation hash to wait for
  * @param options - Optional configuration
  * @returns Promise that resolves when the userOp is on-chain or fails
  */
 export async function waitForUserOp(
-  bundlerUrl: string,
-  userOpHash: string,
-  options: WaitForUserOpOptions = {}
+	bundlerUrl: string,
+	userOpHash: string,
+	options: WaitForUserOpOptions = {},
 ): Promise<UserOpResult> {
-  const { timeoutMs = 60000, pollIntervalMs = 1000 } = options;
+	const { timeoutMs = 60000, pollIntervalMs = 1000 } = options;
 
-  // Try WebSocket first, fall back to polling if it fails
-  try {
-    return await waitForUserOpViaWebSocket(bundlerUrl, userOpHash, timeoutMs);
-  } catch (wsError) {
-    console.warn(
-      "[waitForUserOp] WebSocket subscription failed, falling back to polling:",
-      wsError instanceof Error ? wsError.message : wsError
-    );
-    return await waitForUserOpViaPolling(bundlerUrl, userOpHash, timeoutMs, pollIntervalMs);
-  }
+	// Try WebSocket first, fall back to polling if it fails
+	try {
+		return await waitForUserOpViaWebSocket(bundlerUrl, userOpHash, timeoutMs);
+	} catch (wsError) {
+		console.warn(
+			"[waitForUserOp] WebSocket subscription failed, falling back to polling:",
+			wsError instanceof Error ? wsError.message : wsError,
+		);
+		return await waitForUserOpViaPolling(bundlerUrl, userOpHash, timeoutMs, pollIntervalMs);
+	}
 }
 
 /**
  * Convert HTTP URL to WebSocket URL
  */
 function httpToWsUrl(url: string): string {
-  return url.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+	return url.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
 }
 
 /**
  * Wait for UserOp via WebSocket subscription
  */
 async function waitForUserOpViaWebSocket(
-  bundlerUrl: string,
-  userOpHash: string,
-  timeoutMs: number
+	bundlerUrl: string,
+	userOpHash: string,
+	timeoutMs: number,
 ): Promise<UserOpResult> {
-  const wsUrl = httpToWsUrl(bundlerUrl);
+	const wsUrl = httpToWsUrl(bundlerUrl);
 
-  return new Promise((resolve, reject) => {
-    let ws: WebSocket;
-    let timeoutId: ReturnType<typeof setTimeout>;
-    let subscriptionId: string | null = null;
-    let resolved = false;
+	return new Promise((resolve, reject) => {
+		let ws: WebSocket;
+		let timeoutId: ReturnType<typeof setTimeout>;
+		let subscriptionId: string | null = null;
+		let resolved = false;
 
-    const cleanup = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        // Unsubscribe before closing
-        if (subscriptionId) {
-          ws.send(JSON.stringify({
-            jsonrpc: "2.0",
-            id: 2,
-            method: "skandha_unsubscribe",
-            params: [subscriptionId],
-          }));
-        }
-        ws.close();
-      }
-    };
+		const cleanup = () => {
+			if (timeoutId) clearTimeout(timeoutId);
+			if (ws && ws.readyState === WebSocket.OPEN) {
+				// Unsubscribe before closing
+				if (subscriptionId) {
+					ws.send(
+						JSON.stringify({
+							jsonrpc: "2.0",
+							id: 2,
+							method: "skandha_unsubscribe",
+							params: [subscriptionId],
+						}),
+					);
+				}
+				ws.close();
+			}
+		};
 
-    const resolveOnce = (result: UserOpResult) => {
-      if (resolved) return;
-      resolved = true;
-      cleanup();
-      resolve(result);
-    };
+		const resolveOnce = (result: UserOpResult) => {
+			if (resolved) return;
+			resolved = true;
+			cleanup();
+			resolve(result);
+		};
 
-    const rejectOnce = (error: Error) => {
-      if (resolved) return;
-      resolved = true;
-      cleanup();
-      reject(error);
-    };
+		const rejectOnce = (error: Error) => {
+			if (resolved) return;
+			resolved = true;
+			cleanup();
+			reject(error);
+		};
 
-    // Set timeout
-    timeoutId = setTimeout(() => {
-      rejectOnce(new Error("WebSocket subscription timeout"));
-    }, timeoutMs);
+		// Set timeout
+		timeoutId = setTimeout(() => {
+			rejectOnce(new Error("WebSocket subscription timeout"));
+		}, timeoutMs);
 
-    try {
-      ws = new WebSocket(wsUrl);
-    } catch (err) {
-      rejectOnce(new Error(`Failed to create WebSocket: ${err}`));
-      return;
-    }
+		try {
+			ws = new WebSocket(wsUrl);
+		} catch (err) {
+			rejectOnce(new Error(`Failed to create WebSocket: ${err}`));
+			return;
+		}
 
-    ws.onopen = () => {
-      // Subscribe to onChainUserOps
-      ws.send(JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "skandha_subscribe",
-        params: ["onChainUserOps"],
-      }));
-    };
+		ws.onopen = () => {
+			// Subscribe to onChainUserOps
+			ws.send(
+				JSON.stringify({
+					jsonrpc: "2.0",
+					id: 1,
+					method: "skandha_subscribe",
+					params: ["onChainUserOps"],
+				}),
+			);
+		};
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+		ws.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
 
-        // Handle subscription confirmation
-        if (data.id === 1 && data.result) {
-          subscriptionId = data.result;
-          return;
-        }
+				// Handle subscription confirmation
+				if (data.id === 1 && data.result) {
+					subscriptionId = data.result;
+					return;
+				}
 
-        // Handle subscription events
-        if (data.method === "skandha_subscription" && data.params?.result) {
-          const result = data.params.result;
-          
-          // Check if this is our userOp
-          if (result.userOpHash?.toLowerCase() === userOpHash.toLowerCase()) {
-            const txHash = result.transaction || result.txHash;
-            
-            if (result.status === "onChain" || txHash) {
-              resolveOnce({
-                success: true,
-                txHash,
-                userOpHash,
-              });
-            } else if (result.status === "reverted" || result.status === "rejected") {
-              resolveOnce({
-                success: false,
-                userOpHash,
-                error: `UserOp ${result.status}: ${result.revertReason || "unknown reason"}`,
-              });
-            }
-          }
-        }
-      } catch (parseError) {
-        // Ignore parse errors for non-JSON messages
-      }
-    };
+				// Handle subscription events
+				if (data.method === "skandha_subscription" && data.params?.result) {
+					const result = data.params.result;
 
-    ws.onerror = (error) => {
-      rejectOnce(new Error("WebSocket error"));
-    };
+					// Check if this is our userOp
+					if (result.userOpHash?.toLowerCase() === userOpHash.toLowerCase()) {
+						const txHash = result.transaction || result.txHash;
 
-    ws.onclose = (event) => {
-      if (!resolved) {
-        rejectOnce(new Error(`WebSocket closed: ${event.code} ${event.reason}`));
-      }
-    };
-  });
+						if (result.status === "onChain" || txHash) {
+							resolveOnce({
+								success: true,
+								txHash,
+								userOpHash,
+							});
+						} else if (result.status === "reverted" || result.status === "rejected") {
+							resolveOnce({
+								success: false,
+								userOpHash,
+								error: `UserOp ${result.status}: ${result.revertReason || "unknown reason"}`,
+							});
+						}
+					}
+				}
+			} catch (parseError) {
+				// Ignore parse errors for non-JSON messages
+			}
+		};
+
+		ws.onerror = (error) => {
+			rejectOnce(new Error("WebSocket error"));
+		};
+
+		ws.onclose = (event) => {
+			if (!resolved) {
+				rejectOnce(new Error(`WebSocket closed: ${event.code} ${event.reason}`));
+			}
+		};
+	});
 }
 
 /** JSON-RPC response structure for userOperation status */
 interface UserOpStatusResult {
-  result?: {
-    transaction?: string;
-    status?: string;
-    state?: string;
-    revertReason?: string;
-  };
-  error?: {
-    message?: string;
-  };
+	result?: {
+		transaction?: string;
+		status?: string;
+		state?: string;
+		revertReason?: string;
+	};
+	error?: {
+		message?: string;
+	};
 }
 
 /**
  * Wait for UserOp via HTTP polling (fallback)
  */
 async function waitForUserOpViaPolling(
-  bundlerUrl: string,
-  userOpHash: string,
-  timeoutMs: number,
-  pollIntervalMs: number
+	bundlerUrl: string,
+	userOpHash: string,
+	timeoutMs: number,
+	pollIntervalMs: number,
 ): Promise<UserOpResult> {
-  const startTime = Date.now();
+	const startTime = Date.now();
 
-  while (Date.now() - startTime < timeoutMs) {
-    try {
-      const response = await fetch(bundlerUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "skandha_userOperationStatus",
-          params: [userOpHash],
-        }),
-      });
+	while (Date.now() - startTime < timeoutMs) {
+		try {
+			const response = await fetch(bundlerUrl, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					jsonrpc: "2.0",
+					id: 1,
+					method: "skandha_userOperationStatus",
+					params: [userOpHash],
+				}),
+			});
 
-      const result = await response.json() as UserOpStatusResult;
+			const result = (await response.json()) as UserOpStatusResult;
 
-      if (result.result?.transaction) {
-        // UserOp is on-chain
-        return {
-          success: true,
-          txHash: result.result.transaction,
-          userOpHash,
-        };
-      }
+			if (result.result?.transaction) {
+				// UserOp is on-chain
+				return {
+					success: true,
+					txHash: result.result.transaction,
+					userOpHash,
+				};
+			}
 
-      if (result.result?.status === "OnChain") {
-        return {
-          success: true,
-          txHash: result.result.transaction,
-          userOpHash,
-        };
-      }
+			if (result.result?.status === "OnChain") {
+				return {
+					success: true,
+					txHash: result.result.transaction,
+					userOpHash,
+				};
+			}
 
-      if (
-        result.result?.status === "Reverted" ||
-        result.result?.status === "Cancelled" ||
-        result.result?.state === "reverted" ||
-        result.result?.state === "rejected"
-      ) {
-        return {
-          success: false,
-          userOpHash,
-          error: result.result.revertReason || `UserOp ${result.result.status || result.result.state}`,
-        };
-      }
+			if (
+				result.result?.status === "Reverted" ||
+				result.result?.status === "Cancelled" ||
+				result.result?.state === "reverted" ||
+				result.result?.state === "rejected"
+			) {
+				return {
+					success: false,
+					userOpHash,
+					error: result.result.revertReason || `UserOp ${result.result.status || result.result.state}`,
+				};
+			}
 
-      // Still pending, continue polling
-    } catch (pollError) {
-      console.warn(
-        "[waitForUserOp] Poll error:",
-        pollError instanceof Error ? pollError.message : pollError
-      );
-    }
+			// Still pending, continue polling
+		} catch (pollError) {
+			console.warn("[waitForUserOp] Poll error:", pollError instanceof Error ? pollError.message : pollError);
+		}
 
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-  }
+		await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+	}
 
-  return {
-    success: false,
-    userOpHash,
-    error: "Timeout waiting for UserOp to be confirmed",
-  };
+	return {
+		success: false,
+		userOpHash,
+		error: "Timeout waiting for UserOp to be confirmed",
+	};
 }

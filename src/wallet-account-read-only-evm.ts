@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ethers, Contract, JsonRpcProvider, BrowserProvider, Provider } from "ethers";
 import type { Eip1193Provider } from "ethers";
+import { BrowserProvider, Contract, ethers, JsonRpcProvider, type Provider } from "ethers";
 import type { QssnWalletConfig } from "./types.js";
 
 /**
@@ -21,53 +21,48 @@ import type { QssnWalletConfig } from "./types.js";
  * Works in browsers, Node.js, and all JavaScript environments.
  */
 export class WalletAccountReadOnlyEvm {
-  protected _address: string;
-  protected _config: Omit<QssnWalletConfig, "transferMaxFee">;
-  protected _provider: Provider;
+	protected _address: string;
+	protected _config: Omit<QssnWalletConfig, "transferMaxFee">;
+	protected _provider: Provider;
 
-  constructor(
-    address: string,
-    config: Omit<QssnWalletConfig, "transferMaxFee">
-  ) {
-    this._address = address;
-    this._config = config;
+	constructor(address: string, config: Omit<QssnWalletConfig, "transferMaxFee">) {
+		this._address = address;
+		this._config = config;
 
-    // Setup provider
-    if (config.provider) {
-      if (typeof config.provider === "string") {
-        this._provider = new JsonRpcProvider(config.provider);
-      } else {
-        this._provider = new BrowserProvider(config.provider as Eip1193Provider);
-      }
-    } else {
-      throw new Error("Provider is required for read-only account");
-    }
-  }
+		// Setup provider
+		if (config.provider) {
+			if (typeof config.provider === "string") {
+				this._provider = new JsonRpcProvider(config.provider);
+			} else {
+				this._provider = new BrowserProvider(config.provider as Eip1193Provider);
+			}
+		} else {
+			throw new Error("Provider is required for read-only account");
+		}
+	}
 
-  /**
-   * Get the native token balance (ETH/MATIC/etc)
-   */
-  async getBalance(): Promise<bigint> {
-    return await this._provider.getBalance(this._address);
-  }
+	/**
+	 * Get the native token balance (ETH/MATIC/etc)
+	 */
+	async getBalance(): Promise<bigint> {
+		return await this._provider.getBalance(this._address);
+	}
 
-  /**
-   * Get ERC-20 token balance
-   */
-  async getTokenBalance(tokenAddress: string): Promise<bigint> {
-    const abi = ["function balanceOf(address) view returns (uint256)"];
-    const contract = new Contract(tokenAddress, abi, this._provider);
-    return await contract.balanceOf(this._address);
-  }
+	/**
+	 * Get ERC-20 token balance
+	 */
+	async getTokenBalance(tokenAddress: string): Promise<bigint> {
+		const abi = ["function balanceOf(address) view returns (uint256)"];
+		const contract = new Contract(tokenAddress, abi, this._provider);
+		return await contract.balanceOf(this._address);
+	}
 
-  /**
-   * Get ERC-20 token allowance
-   */
-  async getAllowance(token: string, spender: string): Promise<bigint> {
-    const abi = [
-      "function allowance(address owner, address spender) view returns (uint256)",
-    ];
-    const contract = new Contract(token, abi, this._provider);
-    return await contract.allowance(this._address, spender);
-  }
+	/**
+	 * Get ERC-20 token allowance
+	 */
+	async getAllowance(token: string, spender: string): Promise<bigint> {
+		const abi = ["function allowance(address owner, address spender) view returns (uint256)"];
+		const contract = new Contract(token, abi, this._provider);
+		return await contract.allowance(this._address, spender);
+	}
 }

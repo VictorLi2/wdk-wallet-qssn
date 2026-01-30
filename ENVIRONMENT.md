@@ -19,7 +19,7 @@ The browser-compatible version:
 If you need maximum performance in Node.js environments and can handle native dependencies, you can optionally install:
 
 ```bash
-npm install @tetherto/wdk-wallet-evm
+pnpm install @tetherto/wdk-wallet-evm
 ```
 
 This will use Tether's original implementation with:

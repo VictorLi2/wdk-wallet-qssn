@@ -25,7 +25,7 @@ tests/
 ### Unit Tests Only
 
 ```bash
-npm run test:unit
+pnpm test:unit
 ```
 
 Unit tests run quickly and don't require any external services.
@@ -33,7 +33,7 @@ Unit tests run quickly and don't require any external services.
 ### Integration Tests
 
 ```bash
-npm run test:integration
+pnpm test:integration
 ```
 
 Integration tests require:
@@ -51,13 +51,13 @@ If you encounter issues with stale contract state, you can optionally reset the 
 ./scripts/reset-test-env.sh
 
 # Then run tests
-RUN_INTEGRATION_TESTS=true npm test
+RUN_INTEGRATION_TESTS=true pnpm test
 ```
 
 ### All Tests
 
 ```bash
-npm test
+pnpm test
 ```
 
 Runs only unit tests by default. Integration tests are skipped unless `RUN_INTEGRATION_TESTS=true`.
@@ -65,13 +65,13 @@ Runs only unit tests by default. Integration tests are skipped unless `RUN_INTEG
 ### Watch Mode
 
 ```bash
-npm run test:watch
+pnpm test:watch
 ```
 
 ### Coverage
 
 ```bash
-npm run test:coverage
+pnpm test:coverage
 ```
 
 ## Configuration
