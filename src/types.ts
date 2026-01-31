@@ -134,7 +134,7 @@ export interface QssnWalletConfig {
 	/**
 	 * Gas buffer percentage to add on top of bundler estimates.
 	 * This provides a safety margin against gas price fluctuations and estimation variance.
-	 * Default: 10 (10% buffer). Set to 0 to use exact bundler estimates.
+	 * Default: 20 (20% buffer). Set to 0 to use exact bundler estimates.
 	 */
 	gasBufferPercent?: number;
 }
@@ -164,7 +164,7 @@ export interface QssnUserConfig {
 	/**
 	 * Gas buffer percentage to add on top of bundler estimates.
 	 * This provides a safety margin against gas price fluctuations and estimation variance.
-	 * Default: 10 (10% buffer). Set to 0 to use exact bundler estimates.
+	 * Default: 20 (20% buffer). Set to 0 to use exact bundler estimates.
 	 */
 	gasBufferPercent?: number;
 }

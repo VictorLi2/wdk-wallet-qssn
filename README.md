@@ -256,6 +256,7 @@ new WalletManagerEvmErc4337(seed, config)
   - `chainId` (number): Chain ID of the target network
   - `paymasterUrl` (string, optional): URL of the paymaster service
   - `transferMaxFee` (number | bigint, optional): Maximum fee amount for transfer operations (in wei)
+  - `gasBufferPercent` (number, optional): Safety margin percentage added to gas estimates. Protects against gas price fluctuations and estimation variance. Default: 20 (adds 20% to callGasLimit and verificationGasLimit)
 
 **Example:**
 ```javascript
@@ -362,6 +363,7 @@ new WalletAccountEvmErc4337(seed, path, config)
   - `chainId` (number): Chain ID of the target network
   - `paymasterUrl` (string, optional): URL of the paymaster service
   - `transferMaxFee` (number | bigint, optional): Maximum fee amount for transfer operations (in wei)
+  - `gasBufferPercent` (number, optional): Safety margin percentage added to gas estimates. Protects against gas price fluctuations and estimation variance. Default: 20 (adds 20% to callGasLimit and verificationGasLimit)
 
 #### Methods
 

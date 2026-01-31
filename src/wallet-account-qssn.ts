@@ -392,8 +392,8 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 		// Allow tx.gasLimit to override callGasLimit (for complex operations like factory deployments)
 		const txGasHint = txs[0]?.gasLimit ? BigInt(txs[0].gasLimit) : null;
 
-		// Gas buffer percentage (default 40% = adds 40% on top of bundler estimates)
-		// QSSN first UserOps (wallet deployment) need ~12% minimum buffer, we use 40% for safety
+		// Gas buffer percentage (default 20% = adds 20% on top of bundler estimates)
+		// QSSN first UserOps (wallet deployment) need ~12% minimum buffer, we use 20% for safety
 		// Regular UserOps on deployed wallets may need less buffer
 		const gasBufferPercent = this._config.gasBufferPercent ?? 20;
 		const bufferMultiplier = BigInt(100 + gasBufferPercent);
