@@ -1,82 +1,82 @@
 {
-  "name": "@tetherto/wdk-wallet-qssn",
-  "version": "1.0.0-alpha.1",
-  "description": "Quantum-safe wallet development kit for EVM blockchains with ERC-4337 account abstraction and ML-DSA (FIPS 204) post-quantum signatures",
-  "keywords": [
-    "wdk",
-    "wallet",
-    "quantum-safe",
-    "post-quantum",
-    "ml-dsa",
-    "fips-204",
-    "bip-32",
-    "ethereum",
-    "erc-4337",
-    "account-abstraction"
-  ],
-  "author": "Tether",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/tetherto/wdk-wallet-qssn.git"
-  },
-  "main": "index.js",
-  "type": "module",
-  "types": "./types",
-  "files": [
-    "index.js",
-    "bare.js",
-    "src/",
-    "types/",
-    "README.md",
-    "LICENSE"
-  ],
-  "scripts": {
-    "build:types": "tsc",
-    "prepare": "npm run build:types",
-    "lint": "standard",
-    "lint:fix": "standard --fix",
-    "format": "prettier --write \"src/**/*.js\" \"*.js\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"*.js\""
-  },
-  "dependencies": {
-    "@noble/hashes": "1.6.1",
-    "@noble/post-quantum": "0.5.2",
-    "@scure/bip32": "1.6.0",
-    "@scure/bip39": "1.5.0",
-    "@tetherto/wdk-wallet": "^1.0.0-beta.1",
-    "@wdk-safe-global/relay-kit": "4.1.3",
-    "ethers": "6.14.4"
-  },
-  "devDependencies": {
-    "prettier": "^3.7.4",
-    "standard": "17.1.2",
-    "typescript": "5.8.3"
-  },
-  "overrides": {
-    "axios": "1.12.2",
-    "cookie": "1.0.2",
-    "tmp": "0.2.5",
-    "ws": "8.18.3"
-  },
-  "exports": {
-    ".": {
-      "types": "./types/index.d.ts",
-      "bare": "./bare.js",
-      "default": "./index.js"
-    },
-    "./package": {
-      "default": "./package.json"
-    }
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "standard": {
-    "ignore": [
-      "bare.js",
-      "tests/**/*.js"
-    ]
-  }
+	"name": "@tetherto/wdk-wallet-qssn",
+	"version": "1.0.0-alpha.1",
+	"description": "Quantum-safe wallet development kit for EVM blockchains with ERC-4337 account abstraction and ML-DSA (FIPS 204) post-quantum signatures",
+	"keywords": [
+		"wdk",
+		"wallet",
+		"quantum-safe",
+		"post-quantum",
+		"ml-dsa",
+		"fips-204",
+		"bip-32",
+		"ethereum",
+		"erc-4337",
+		"account-abstraction"
+	],
+	"author": "Tether",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/tetherto/wdk-wallet-qssn.git"
+	},
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"type": "module",
+	"files": [
+		"dist/",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "tsc",
+		"clean": "rm -rf dist",
+		"prepublishOnly": "npm run clean && npm run build",
+		"lint": "eslint src --ext .ts",
+		"format": "prettier --write \"src/**/*.ts\"",
+		"format:check": "prettier --check \"src/**/*.ts\"",
+		"typecheck": "tsc --noEmit && tsc --project tsconfig.test.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:unit": "vitest run --dir tests/unit",
+		"test:integration": "RUN_INTEGRATION_TESTS=true vitest run --dir tests/integration",
+		"test:coverage": "vitest run --coverage"
+	},
+	"dependencies": {
+		"@noble/hashes": "1.6.1",
+		"@noble/post-quantum": "0.5.2",
+		"@scure/bip32": "1.6.0",
+		"@scure/bip39": "1.5.0",
+		"ethers": "6.14.4"
+	},
+	"devDependencies": {
+		"@types/node": "^20.10.0",
+		"@vitest/coverage-v8": "^2.1.8",
+		"dotenv": "^17.2.3",
+		"prettier": "^3.7.4",
+		"typescript": "^5.8.3",
+		"viem": "^2.44.4",
+		"vitest": "^2.1.8"
+	},
+	"overrides": {
+		"axios": "1.12.2",
+		"cookie": "1.0.2",
+		"tmp": "0.2.5",
+		"ws": "8.18.3"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./package": {
+			"default": "./package.json"
+		}
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	}
 }
