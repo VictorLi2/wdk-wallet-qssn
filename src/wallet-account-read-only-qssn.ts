@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Contract, JsonRpcProvider, BrowserProvider, Interface, toBeHex, Provider } from "ethers";
 import type { Eip1193Provider, FeeData } from "ethers";
-import { WalletAccountReadOnlyEvm } from "./wallet-account-read-only-evm.js";
+import { BrowserProvider, Contract, Interface, JsonRpcProvider, Provider, toBeHex } from "ethers";
 import type {
-	QssnWalletConfig,
-	EvmTransaction,
-	TransferOptions,
-	EvmTransactionReceipt,
-	QuoteResult,
-	GasLimits,
 	CachedRpcData,
+	EvmTransaction,
+	EvmTransactionReceipt,
+	GasLimits,
 	PaymasterTokenConfig,
+	QssnWalletConfig,
+	QuoteResult,
+	TransferOptions,
 } from "./types.js";
+import { WalletAccountReadOnlyEvm } from "./wallet-account-read-only-evm.js";
 
 // ABIs for contract interactions
 const FACTORY_ABI = [
@@ -110,9 +110,7 @@ export class WalletAccountReadOnlyQssn {
 		const { paymasterToken } = this._config;
 
 		if (!paymasterToken) {
-			throw new Error(
-				"No paymaster token configured. Please provide paymasterToken in the wallet configuration.",
-			);
+			throw new Error("No paymaster token configured. Please provide paymasterToken in the wallet configuration.");
 		}
 
 		return await this.getTokenBalance(paymasterToken.address);
@@ -129,10 +127,7 @@ export class WalletAccountReadOnlyQssn {
 		const { paymasterToken } = config ?? this._config;
 
 		try {
-			const { fee, totalGas, gasLimits, _cached } = await this._estimateUserOperationGas(
-				[tx].flat(),
-				paymasterToken,
-			);
+			const { fee, totalGas, gasLimits, _cached } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
 
 			// If bundler returned totalGasEstimate with overhead included, use it directly
 			if (totalGas) {
@@ -249,9 +244,7 @@ export class WalletAccountReadOnlyQssn {
 		if (!this._provider) {
 			const { provider } = this._config;
 			this._provider =
-				typeof provider === "string"
-					? new JsonRpcProvider(provider)
-					: new BrowserProvider(provider as Eip1193Provider);
+				typeof provider === "string" ? new JsonRpcProvider(provider) : new BrowserProvider(provider as Eip1193Provider);
 		}
 		return this._provider;
 	}
@@ -312,9 +305,7 @@ export class WalletAccountReadOnlyQssn {
 		// Encode callData for execute function
 		let callData: string;
 		if (txs.length === 1) {
-			const wallet = new Interface([
-				"function execute(address target, uint256 value, bytes calldata data) external",
-			]);
+			const wallet = new Interface(["function execute(address target, uint256 value, bytes calldata data) external"]);
 			callData = wallet.encodeFunctionData("execute", [txs[0].to, txs[0].value || 0, txs[0].data || "0x"]);
 		} else {
 			const wallet = new Interface([

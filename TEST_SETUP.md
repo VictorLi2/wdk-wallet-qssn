@@ -72,26 +72,26 @@ From **wdk-quickstart**, we converted:
 
 ```bash
 cd wdk-wallet-qssn
-npm run test:unit
+pnpm test:unit
 ```
 
 ### Run All Tests (Including Integration)
 
 ```bash
 # Start your local node and bundler first
-npm run test:integration
+pnpm test:integration
 ```
 
 ### Watch Mode (During Development)
 
 ```bash
-npm run test:watch
+pnpm test:watch
 ```
 
 ### Generate Coverage Report
 
 ```bash
-npm run test:coverage
+pnpm test:coverage
 ```
 
 ## Configuration
@@ -112,10 +112,10 @@ RUN_INTEGRATION_TESTS=true  # Enable integration tests
 ```yaml
 # GitHub Actions example
 - name: Run unit tests
-  run: npm run test:unit
+  run: pnpm test:unit
 
 - name: Run integration tests (if bundler available)
-  run: npm run test:integration
+  run: pnpm test:integration
   env:
       RUN_INTEGRATION_TESTS: true
 ```

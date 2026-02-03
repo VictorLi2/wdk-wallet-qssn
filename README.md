@@ -256,6 +256,7 @@ new WalletManagerEvmErc4337(seed, config)
   - `chainId` (number): Chain ID of the target network
   - `paymasterUrl` (string, optional): URL of the paymaster service
   - `transferMaxFee` (number | bigint, optional): Maximum fee amount for transfer operations (in wei)
+  - `gasBufferPercent` (number, optional): Safety margin percentage added to gas estimates. Protects against gas price fluctuations and estimation variance. Default: 20 (adds 20% to callGasLimit and verificationGasLimit)
 
 **Example:**
 ```javascript
@@ -362,6 +363,7 @@ new WalletAccountEvmErc4337(seed, path, config)
   - `chainId` (number): Chain ID of the target network
   - `paymasterUrl` (string, optional): URL of the paymaster service
   - `transferMaxFee` (number | bigint, optional): Maximum fee amount for transfer operations (in wei)
+  - `gasBufferPercent` (number, optional): Safety margin percentage added to gas estimates. Protects against gas price fluctuations and estimation variance. Default: 20 (adds 20% to callGasLimit and verificationGasLimit)
 
 #### Methods
 
@@ -703,26 +705,26 @@ This package works with any EVM-compatible blockchain that supports ERC-4337, in
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build TypeScript definitions
-npm run build:types
+pnpm build:types
 
 # Lint code
-npm run lint
+pnpm lint
 
 # Fix linting issues
-npm run lint:fix
+pnpm lint:fix
 ```
 
 ### Testing
 
 ```bash
 # Run tests
-npm test
+pnpm test
 
 # Run tests with coverage
-npm run test:coverage
+pnpm test:coverage
 ```
 
 ## 📜 License
