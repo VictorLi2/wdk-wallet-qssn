@@ -24,6 +24,7 @@ import type {
 	QuoteResult,
 	TransferOptions,
 } from "./types.js";
+import { bundlerFetch } from "./utils/bundler-fetch.js";
 import { WalletAccountReadOnlyEvm } from "./wallet-account-read-only-evm.js";
 
 // ABIs for contract interactions
@@ -203,27 +204,15 @@ export class WalletAccountReadOnlyQssn {
 	 */
 	async getTransactionReceipt(hash: string): Promise<EvmTransactionReceipt | null> {
 		try {
-			const response = await fetch(this._config.bundlerUrl, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					jsonrpc: "2.0",
-					id: 1,
-					method: "eth_getUserOperationReceipt",
-					params: [hash],
-				}),
+			const result = await bundlerFetch<{ receipt?: EvmTransactionReceipt }>({
+				bundlerUrl: this._config.bundlerUrl,
+				method: "eth_getUserOperationReceipt",
+				params: [hash],
+				timeout: this._config.bundlerTimeout,
+				retries: this._config.bundlerRetries,
+				onRetry: this._config.onBundlerRetry,
 			});
-
-			const result = (await response.json()) as {
-				result?: { receipt?: EvmTransactionReceipt };
-				error?: { message: string };
-			};
-
-			if (result.result && result.result.receipt) {
-				return result.result.receipt;
-			}
-
-			return null;
+			return result?.receipt ?? null;
 		} catch {
 			return null;
 		}
@@ -343,36 +332,21 @@ export class WalletAccountReadOnlyQssn {
 		}
 
 		// Query bundler for gas estimates
-		const response = await fetch(this._config.bundlerUrl, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				jsonrpc: "2.0",
-				id: 1,
-				method: "eth_estimateUserOperationGas",
-				params: [userOp, this._config.entryPointAddress],
-			}),
+		const result = await bundlerFetch<{
+			callGasLimit: string;
+			verificationGasLimit: string;
+			preVerificationGas: string;
+			totalGasEstimate?: string;
+		}>({
+			bundlerUrl: this._config.bundlerUrl,
+			method: "eth_estimateUserOperationGas",
+			params: [userOp, this._config.entryPointAddress],
+			timeout: this._config.bundlerTimeout,
+			retries: this._config.bundlerRetries,
+			onRetry: this._config.onBundlerRetry,
 		});
 
-		const result = (await response.json()) as {
-			result?: {
-				callGasLimit: string;
-				verificationGasLimit: string;
-				preVerificationGas: string;
-				totalGasEstimate?: string; // Includes EntryPoint overhead
-			};
-			error?: { message: string };
-		};
-
-		if (result.error) {
-			throw new Error(result.error.message);
-		}
-
-		if (!result.result) {
-			throw new Error("No gas estimation result returned from bundler");
-		}
-
-		const { callGasLimit, verificationGasLimit, preVerificationGas, totalGasEstimate } = result.result;
+		const { callGasLimit, verificationGasLimit, preVerificationGas, totalGasEstimate } = result;
 
 		const maxFeePerGas = feeData.maxFeePerGas || 1000000000n;
 

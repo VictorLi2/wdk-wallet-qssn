@@ -29,6 +29,7 @@ import {
 	toUtf8Bytes,
 	zeroPadValue,
 } from "ethers";
+import { bundlerFetch } from "./utils/bundler-fetch.js";
 import { WalletAccountEvm } from "./wallet-account-evm.js";
 import { WalletAccountMldsa } from "./wallet-account-mldsa.js";
 import { WalletAccountReadOnlyQssn } from "./wallet-account-read-only-qssn.js";
@@ -424,25 +425,23 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 			});
 		}
 		// Submit to bundler
-		const response = await fetch(this._config.bundlerUrl, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				jsonrpc: "2.0",
-				id: 1,
+		try {
+			const userOpHash = await bundlerFetch({
+				bundlerUrl: this._config.bundlerUrl,
 				method: "eth_sendUserOperation",
 				params: bundlerParams,
-			}),
-		});
-		const result = await response.json();
-		if (result.error) {
+				timeout: this._config.bundlerTimeout,
+				retries: this._config.bundlerRetries,
+				onRetry: this._config.onBundlerRetry,
+			});
+			return userOpHash;
+		} catch (error) {
 			// Check for AA50 error (insufficient funds to repay paymaster)
-			if (result.error.message && result.error.message.includes("AA50")) {
+			if (error instanceof Error && error.message.includes("AA50")) {
 				throw new Error("Not enough funds on the wallet account to repay the paymaster.");
 			}
-			throw new Error(`Bundler error: ${result.error.message}`);
+			throw error;
 		}
-		return result.result; // UserOp hash
 	}
 }
 //# sourceMappingURL=wallet-account-qssn.js.map

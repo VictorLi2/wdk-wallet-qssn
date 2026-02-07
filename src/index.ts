@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Errors
+export { BundlerNetworkError, BundlerTimeoutError } from "./errors.js";
 // Types
 export type {
 	ApproveOptions,
@@ -39,6 +41,7 @@ export type {
 	TransferResult,
 	UserOpOptions,
 } from "./types.js";
+export type { BundlerFetchOptions } from "./utils/bundler-fetch.js";
 export type { UserOpResult, WaitForUserOpOptions } from "./utils/bundler-subscription.js";
 export { waitForUserOp } from "./utils/bundler-subscription.js";
 // Utilities

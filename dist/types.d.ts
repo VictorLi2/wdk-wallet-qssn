@@ -111,6 +111,22 @@ export interface QssnWalletConfig {
 	 * Default: 20 (20% buffer). Set to 0 to use exact bundler estimates.
 	 */
 	gasBufferPercent?: number;
+	/**
+	 * Timeout in milliseconds for bundler RPC calls.
+	 * Default: 30000 (30 seconds).
+	 */
+	bundlerTimeout?: number;
+	/**
+	 * Number of retry attempts for failed bundler RPC calls.
+	 * Default: 3.
+	 */
+	bundlerRetries?: number;
+	/**
+	 * Optional callback invoked before each retry attempt.
+	 * @param attempt - The retry attempt number (1-based)
+	 * @param error - The error that caused the retry
+	 */
+	onBundlerRetry?: (attempt: number, error: Error) => void;
 }
 /**
  * User-provided configuration (chainId, provider, and bundlerUrl required, presets applied automatically)
@@ -140,6 +156,22 @@ export interface QssnUserConfig {
 	 * Default: 20 (20% buffer). Set to 0 to use exact bundler estimates.
 	 */
 	gasBufferPercent?: number;
+	/**
+	 * Timeout in milliseconds for bundler RPC calls.
+	 * Default: 30000 (30 seconds).
+	 */
+	bundlerTimeout?: number;
+	/**
+	 * Number of retry attempts for failed bundler RPC calls.
+	 * Default: 3.
+	 */
+	bundlerRetries?: number;
+	/**
+	 * Optional callback invoked before each retry attempt.
+	 * @param attempt - The retry attempt number (1-based)
+	 * @param error - The error that caused the retry
+	 */
+	onBundlerRetry?: (attempt: number, error: Error) => void;
 }
 /**
  * Chain preset configuration
