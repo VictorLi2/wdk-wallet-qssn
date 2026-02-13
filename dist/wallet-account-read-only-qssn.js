@@ -73,10 +73,11 @@ export class WalletAccountReadOnlyQssn {
 		return await this.getTokenBalance(paymasterToken.address);
 	}
 	/**
-	 * Quotes the costs of a send transaction operation.
-	 * Applies the same overhead as _buildUserOp for accurate estimates.
+	 * Internal quote method that returns cached RPC data for the quote→send optimization.
+	 * Used by sendTransaction() and transfer() to avoid redundant RPC calls.
+	 * @internal
 	 */
-	async quoteSendTransaction(tx, config) {
+	async _quoteSendTransactionInternal(tx, config) {
 		const { paymasterToken } = config ?? this._config;
 		try {
 			const { fee, totalGas, gasLimits, _cached } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
@@ -115,6 +116,32 @@ export class WalletAccountReadOnlyQssn {
 		} catch (error) {
 			throw error;
 		}
+	}
+	/**
+	 * Quotes the costs of a send transaction operation.
+	 * Applies the same overhead as _buildUserOp for accurate estimates.
+	 */
+	async quoteSendTransaction(tx, config) {
+		const { _cached, ...publicResult } = await this._quoteSendTransactionInternal(tx, config);
+		return publicResult;
+	}
+	/**
+	 * Estimates gas costs for a transaction without executing it.
+	 * Returns gas estimates that can be displayed to users before they commit to a transaction.
+	 *
+	 * @param tx - Transaction parameters: target address, value, and optional calldata
+	 * @returns Gas estimation including totalGas and per-component gasLimits
+	 */
+	async estimateGas(tx) {
+		const { paymasterToken } = this._config;
+		const { totalGas, gasLimits } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
+		// Calculate total gas if not provided by bundler
+		const computedTotalGas =
+			totalGas ?? gasLimits.callGasLimit + gasLimits.verificationGasLimit + gasLimits.preVerificationGas;
+		return {
+			totalGas: computedTotalGas,
+			gasLimits,
+		};
 	}
 	/**
 	 * Quotes the costs of a transfer operation.

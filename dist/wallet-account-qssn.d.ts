@@ -2,9 +2,12 @@ import { BrowserProvider, JsonRpcProvider } from "ethers";
 import type {
 	ApproveOptions,
 	DualSignature,
+	EIP712Domain,
+	EIP712Types,
 	EvmTransaction,
 	KeyPair,
 	QssnWalletConfig,
+	SignTypedDataResult,
 	TransactionResult,
 	TransferOptions,
 	TransferResult,
@@ -47,6 +50,17 @@ export declare class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 	 * Verifies a message's signature.
 	 */
 	verify(message: string, signature: string): Promise<boolean>;
+	/**
+	 * Signs EIP-712 typed data with dual ECDSA + ML-DSA signatures.
+	 * Submits an approveHash UserOp to the bundler for on-chain hash approval,
+	 * ensuring ML-DSA verification through the trusted bundler pipeline.
+	 *
+	 * @param domain - EIP-712 domain separator fields
+	 * @param types - EIP-712 type definitions mapping type names to field arrays
+	 * @param value - The structured data object matching the primary type
+	 * @returns The encoded QSSN signature and the typed data hash
+	 */
+	signTypedData(domain: EIP712Domain, types: EIP712Types, value: Record<string, unknown>): Promise<SignTypedDataResult>;
 	/**
 	 * Approves a specific amount of tokens to a spender.
 	 */
@@ -93,5 +107,10 @@ export declare class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 	private _buildUserOp;
 	private _getUserOpHash;
 	private _sendUserOperation;
+	/**
+	 * Validates EIP-712 typed data inputs before any signing or on-chain interaction.
+	 * Follows fail-fast pattern.
+	 */
+	private _validateTypedDataInputs;
 }
 //# sourceMappingURL=wallet-account-qssn.d.ts.map

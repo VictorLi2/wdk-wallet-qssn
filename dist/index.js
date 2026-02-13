@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 // Errors
 export { BundlerNetworkError, BundlerTimeoutError } from "./errors.js";
 export { waitForUserOp } from "./utils/bundler-subscription.js";

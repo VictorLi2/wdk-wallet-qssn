@@ -18,7 +18,9 @@ import type {
 	CachedRpcData,
 	EvmTransaction,
 	EvmTransactionReceipt,
+	GasEstimateResult,
 	GasLimits,
+	InternalQuoteResult,
 	PaymasterTokenConfig,
 	QssnWalletConfig,
 	QuoteResult,
@@ -118,13 +120,14 @@ export class WalletAccountReadOnlyQssn {
 	}
 
 	/**
-	 * Quotes the costs of a send transaction operation.
-	 * Applies the same overhead as _buildUserOp for accurate estimates.
+	 * Internal quote method that returns cached RPC data for the quote→send optimization.
+	 * Used by sendTransaction() and transfer() to avoid redundant RPC calls.
+	 * @internal
 	 */
-	async quoteSendTransaction(
+	protected async _quoteSendTransactionInternal(
 		tx: EvmTransaction | EvmTransaction[],
 		config?: Partial<QssnWalletConfig>,
-	): Promise<QuoteResult> {
+	): Promise<InternalQuoteResult> {
 		const { paymasterToken } = config ?? this._config;
 
 		try {
@@ -169,6 +172,39 @@ export class WalletAccountReadOnlyQssn {
 		} catch (error) {
 			throw error;
 		}
+	}
+
+	/**
+	 * Quotes the costs of a send transaction operation.
+	 * Applies the same overhead as _buildUserOp for accurate estimates.
+	 */
+	async quoteSendTransaction(
+		tx: EvmTransaction | EvmTransaction[],
+		config?: Partial<QssnWalletConfig>,
+	): Promise<QuoteResult> {
+		const { _cached, ...publicResult } = await this._quoteSendTransactionInternal(tx, config);
+		return publicResult;
+	}
+
+	/**
+	 * Estimates gas costs for a transaction without executing it.
+	 * Returns gas estimates that can be displayed to users before they commit to a transaction.
+	 *
+	 * @param tx - Transaction parameters: target address, value, and optional calldata
+	 * @returns Gas estimation including totalGas and per-component gasLimits
+	 */
+	async estimateGas(tx: EvmTransaction | EvmTransaction[]): Promise<GasEstimateResult> {
+		const { paymasterToken } = this._config;
+		const { totalGas, gasLimits } = await this._estimateUserOperationGas([tx].flat(), paymasterToken);
+
+		// Calculate total gas if not provided by bundler
+		const computedTotalGas =
+			totalGas ?? gasLimits.callGasLimit + gasLimits.verificationGasLimit + gasLimits.preVerificationGas;
+
+		return {
+			totalGas: computedTotalGas,
+			gasLimits,
+		};
 	}
 
 	/**
@@ -261,7 +297,7 @@ export class WalletAccountReadOnlyQssn {
 	protected async _estimateUserOperationGas(
 		txs: EvmTransaction[],
 		_paymasterToken?: PaymasterTokenConfig,
-	): Promise<{ fee: bigint; totalGas?: bigint; gasLimits: GasLimits; _cached: CachedRpcData }> {
+	): Promise<InternalQuoteResult> {
 		const walletAddress = await this.getAddress();
 		const provider = await this._getProvider();
 		const entryPoint = new Contract(

@@ -2,9 +2,35 @@
  * Unit tests for WalletAccountQssn
  */
 
-import { describe, it, expect } from "vitest";
+import { Contract } from "ethers";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WalletAccountQssn } from "../../src/wallet-account-qssn.js";
-import { TEST_MNEMONIC, TEST_CONFIG } from "../fixtures/test-config.js";
+import { TEST_CONFIG, TEST_MNEMONIC } from "../fixtures/test-config.js";
+
+// Mock ethers Contract to avoid real network calls
+vi.mock("ethers", async () => {
+	const actual = await vi.importActual<typeof import("ethers")>("ethers");
+	return {
+		...actual,
+		Contract: vi.fn().mockImplementation((address, abi, provider) => ({
+			getWalletAddress: vi.fn().mockImplementation((mldsaPublicKey: string, ecdsaOwner: string) => {
+				// Generate unique address based on public key to simulate different accounts
+				const hash = mldsaPublicKey.slice(2, 42); // Use part of pubkey as address
+				return `0x${hash.padEnd(40, "0")}`;
+			}),
+			target: address,
+		})),
+		JsonRpcProvider: vi.fn().mockImplementation((url) => ({
+			_isProvider: true,
+			getNetwork: vi.fn().mockResolvedValue({ chainId: TEST_CONFIG.chainId }),
+			getCode: vi.fn().mockResolvedValue("0x"),
+			getFeeData: vi.fn().mockResolvedValue({
+				maxFeePerGas: 1000000000n,
+				maxPriorityFeePerGas: 1000000000n,
+			}),
+		})),
+	};
+});
 
 describe("WalletAccountQssn", () => {
 	describe("constructor", () => {

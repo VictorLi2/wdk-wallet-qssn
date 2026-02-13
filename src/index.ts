@@ -20,11 +20,15 @@ export type {
 	CachedRpcData,
 	ChainPreset,
 	DualSignature,
+	EIP712Domain,
+	EIP712TypeField,
+	EIP712Types,
 	// Transaction types
 	EvmTransaction,
 	EvmTransactionReceipt,
 	// Fee and gas types
 	FeeRates,
+	GasEstimateResult,
 	GasLimits,
 	// Key types
 	KeyPair,
@@ -36,6 +40,8 @@ export type {
 	// Core config types
 	QssnWalletConfig,
 	QuoteResult,
+	SignTypedDataParams,
+	SignTypedDataResult,
 	TransactionResult,
 	TransferOptions,
 	TransferResult,

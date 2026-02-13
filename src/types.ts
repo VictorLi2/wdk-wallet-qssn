@@ -236,7 +236,24 @@ export interface QuoteResult {
 	fee: bigint;
 	totalGas?: bigint; // Total gas including EntryPoint overhead (if bundler provides it)
 	gasLimits: GasLimits;
-	_cached?: CachedRpcData;
+}
+
+/**
+ * Result of gas estimation (public-facing, gas data only)
+ */
+export interface GasEstimateResult {
+	totalGas: bigint;
+	gasLimits: GasLimits;
+}
+
+/**
+ * Internal quote result with cached RPC data for the quote→send optimization.
+ * NOT exported publicly — used internally between quoteSendTransaction and sendTransaction/transfer
+ * to avoid redundant RPC calls.
+ * @internal
+ */
+export interface InternalQuoteResult extends QuoteResult {
+	_cached: CachedRpcData;
 }
 
 /**
@@ -255,4 +272,47 @@ export interface UserOpOptions {
 export interface DualSignature {
 	ecdsa: string;
 	mldsa: string;
+}
+
+/**
+ * EIP-712 domain separator fields (all optional per EIP-712 spec)
+ */
+export interface EIP712Domain {
+	name?: string;
+	version?: string;
+	chainId?: number | bigint;
+	verifyingContract?: string;
+	salt?: string;
+}
+
+/**
+ * EIP-712 type field definition
+ */
+export interface EIP712TypeField {
+	name: string;
+	type: string;
+}
+
+/**
+ * EIP-712 types mapping (type name → array of field definitions)
+ */
+export type EIP712Types = Record<string, EIP712TypeField[]>;
+
+/**
+ * Parameters for signTypedData method
+ */
+export interface SignTypedDataParams {
+	domain: EIP712Domain;
+	types: EIP712Types;
+	value: Record<string, unknown>;
+}
+
+/**
+ * Result of signTypedData method
+ */
+export interface SignTypedDataResult {
+	/** The encoded QSSN signature (abi.encode(ecdsaSig, mldsaSig, mldsaPubKey, ecdsaOwner)) */
+	signature: string;
+	/** The EIP-712 typed data hash that was signed and approved on-chain */
+	typedDataHash: string;
 }

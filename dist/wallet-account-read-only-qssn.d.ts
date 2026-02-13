@@ -1,9 +1,9 @@
 import { BrowserProvider, JsonRpcProvider } from "ethers";
 import type {
-	CachedRpcData,
 	EvmTransaction,
 	EvmTransactionReceipt,
-	GasLimits,
+	GasEstimateResult,
+	InternalQuoteResult,
 	PaymasterTokenConfig,
 	QssnWalletConfig,
 	QuoteResult,
@@ -37,10 +37,27 @@ export declare class WalletAccountReadOnlyQssn {
 	 */
 	getPaymasterTokenBalance(): Promise<bigint>;
 	/**
+	 * Internal quote method that returns cached RPC data for the quote→send optimization.
+	 * Used by sendTransaction() and transfer() to avoid redundant RPC calls.
+	 * @internal
+	 */
+	protected _quoteSendTransactionInternal(
+		tx: EvmTransaction | EvmTransaction[],
+		config?: Partial<QssnWalletConfig>,
+	): Promise<InternalQuoteResult>;
+	/**
 	 * Quotes the costs of a send transaction operation.
 	 * Applies the same overhead as _buildUserOp for accurate estimates.
 	 */
 	quoteSendTransaction(tx: EvmTransaction | EvmTransaction[], config?: Partial<QssnWalletConfig>): Promise<QuoteResult>;
+	/**
+	 * Estimates gas costs for a transaction without executing it.
+	 * Returns gas estimates that can be displayed to users before they commit to a transaction.
+	 *
+	 * @param tx - Transaction parameters: target address, value, and optional calldata
+	 * @returns Gas estimation including totalGas and per-component gasLimits
+	 */
+	estimateGas(tx: EvmTransaction | EvmTransaction[]): Promise<GasEstimateResult>;
 	/**
 	 * Quotes the costs of a transfer operation.
 	 */
@@ -73,11 +90,6 @@ export declare class WalletAccountReadOnlyQssn {
 	protected _estimateUserOperationGas(
 		txs: EvmTransaction[],
 		_paymasterToken?: PaymasterTokenConfig,
-	): Promise<{
-		fee: bigint;
-		totalGas?: bigint;
-		gasLimits: GasLimits;
-		_cached: CachedRpcData;
-	}>;
+	): Promise<InternalQuoteResult>;
 }
 //# sourceMappingURL=wallet-account-read-only-qssn.d.ts.map

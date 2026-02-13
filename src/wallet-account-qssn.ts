@@ -37,16 +37,20 @@ import type {
 	ApproveOptions,
 	CachedRpcData,
 	DualSignature,
+	EIP712Domain,
+	EIP712Types,
 	EvmTransaction,
 	GasLimits,
 	KeyPair,
 	PaymasterTokenConfig,
 	QssnWalletConfig,
+	SignTypedDataResult,
 	TransactionResult,
 	TransferOptions,
 	TransferResult,
 } from "./types.js";
 import { bundlerFetch } from "./utils/bundler-fetch.js";
+import { waitForUserOp } from "./utils/bundler-subscription.js";
 import { WalletAccountEvm } from "./wallet-account-evm.js";
 import { WalletAccountMldsa } from "./wallet-account-mldsa.js";
 import { WalletAccountReadOnlyQssn } from "./wallet-account-read-only-qssn.js";
@@ -166,6 +170,77 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 	}
 
 	/**
+	 * Signs EIP-712 typed data with dual ECDSA + ML-DSA signatures.
+	 * Submits an approveHash UserOp to the bundler for on-chain hash approval,
+	 * ensuring ML-DSA verification through the trusted bundler pipeline.
+	 *
+	 * @param domain - EIP-712 domain separator fields
+	 * @param types - EIP-712 type definitions mapping type names to field arrays
+	 * @param value - The structured data object matching the primary type
+	 * @returns The encoded QSSN signature and the typed data hash
+	 */
+	async signTypedData(
+		domain: EIP712Domain,
+		types: EIP712Types,
+		value: Record<string, unknown>,
+	): Promise<SignTypedDataResult> {
+		// 1. Validate inputs (fail-fast, no signing or network calls)
+		this._validateTypedDataInputs(domain, types, value);
+
+		// 2. Compute EIP-712 hash
+		const typedDataHash = TypedDataEncoder.hash(domain, types, value);
+
+		// 3. Sign the hash with ECDSA (raw signing, no Ethereum Signed Message prefix)
+		const ecdsaSig = this._ecdsaWallet.signingKey.sign(typedDataHash);
+		const sig = Signature.from(ecdsaSig);
+		const ecdsaSignature = concat([zeroPadValue(sig.r, 32), zeroPadValue(sig.s, 32), toBeArray(sig.v)]);
+
+		// 4. Sign the hash with ML-DSA
+		const mldsaSignatureHex = await this._mldsaAccount.sign(getBytes(typedDataHash));
+		const mldsaPublicKeyHex = this._mldsaAccount.publicKeyHex;
+
+		// 5. Encode in QSSN format: abi.encode(ecdsaSig, mldsaSig, mldsaPubKey, ecdsaOwner)
+		const abiCoder = new AbiCoder();
+		const encodedSignature = abiCoder.encode(
+			["bytes", "bytes", "bytes", "address"],
+			[ecdsaSignature, mldsaSignatureHex, mldsaPublicKeyHex, this._ownerAccount._address],
+		);
+
+		// 6. Submit approveHash UserOp via bundler
+		// The wallet calls self.approveHash(hash) via execute()
+		const walletAddress = await this.getAddress();
+		const walletInterface = new Interface([
+			"function execute(address target, uint256 value, bytes calldata data) external",
+		]);
+		const approveHashInterface = new Interface(["function approveHash(bytes32 hash) external"]);
+
+		const approveHashCalldata = approveHashInterface.encodeFunctionData("approveHash", [typedDataHash]);
+
+		const tx: EvmTransaction = {
+			to: walletAddress,
+			value: 0,
+			data: approveHashCalldata,
+		};
+
+		const userOpHash = await this._sendUserOperation([tx]);
+
+		// 7. Wait for approveHash UserOp to be confirmed on-chain
+		const result = await waitForUserOp(this._config.bundlerUrl, userOpHash, {
+			timeoutMs: this._config.bundlerTimeout ?? 60000,
+		});
+
+		if (!result.success) {
+			throw new Error(`signTypedData: approveHash UserOp failed: ${result.error || "unknown error"}`);
+		}
+
+		// 8. Return the encoded signature and hash
+		return {
+			signature: encodedSignature,
+			typedDataHash,
+		};
+	}
+
+	/**
 	 * Approves a specific amount of tokens to a spender.
 	 */
 	async approve(options: ApproveOptions): Promise<TransactionResult> {
@@ -206,7 +281,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 	): Promise<TransactionResult> {
 		const { paymasterToken } = config ?? this._config;
 
-		const { fee, gasLimits, _cached } = await this.quoteSendTransaction(tx, config);
+		const { fee, gasLimits, _cached } = await this._quoteSendTransactionInternal(tx, config);
 
 		// If paymaster is configured, pass token approval options
 		// Also pass cached RPC data to avoid duplicate calls
@@ -235,7 +310,7 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 
 		const tx = WalletAccountEvm._getTransferTransaction(options);
 
-		const { fee, gasLimits, _cached } = await this.quoteSendTransaction(tx, config);
+		const { fee, gasLimits, _cached } = await this._quoteSendTransactionInternal(tx, config);
 
 		if (transferMaxFee !== undefined && fee >= transferMaxFee) {
 			throw new Error("Exceeded maximum fee cost for transfer operation.");
@@ -567,6 +642,66 @@ export class WalletAccountQssn extends WalletAccountReadOnlyQssn {
 				throw new Error("Not enough funds on the wallet account to repay the paymaster.");
 			}
 			throw error;
+		}
+	}
+
+	/**
+	 * Validates EIP-712 typed data inputs before any signing or on-chain interaction.
+	 * Follows fail-fast pattern.
+	 */
+	private _validateTypedDataInputs(domain: EIP712Domain, types: EIP712Types, value: Record<string, unknown>): void {
+		// Validate types object exists and is non-empty
+		if (!types || typeof types !== "object" || Object.keys(types).length === 0) {
+			throw new Error("signTypedData: types object is required and must not be empty");
+		}
+
+		// Validate value exists
+		if (!value || typeof value !== "object") {
+			throw new Error("signTypedData: value is required and must be an object");
+		}
+
+		// Validate domain field types if provided
+		if (domain) {
+			if (domain.chainId !== undefined && typeof domain.chainId !== "number" && typeof domain.chainId !== "bigint") {
+				throw new Error("signTypedData: domain.chainId must be a number or bigint");
+			}
+			if (domain.verifyingContract !== undefined && typeof domain.verifyingContract !== "string") {
+				throw new Error("signTypedData: domain.verifyingContract must be a string");
+			}
+			if (domain.name !== undefined && typeof domain.name !== "string") {
+				throw new Error("signTypedData: domain.name must be a string");
+			}
+			if (domain.version !== undefined && typeof domain.version !== "string") {
+				throw new Error("signTypedData: domain.version must be a string");
+			}
+			if (domain.salt !== undefined && typeof domain.salt !== "string") {
+				throw new Error("signTypedData: domain.salt must be a string");
+			}
+		}
+
+		// Validate primary type exists in types
+		// The primary type is the type of the value being signed
+		// ethers.js TypedDataEncoder expects the primary type to be derivable from the types object
+		// (it's the type not referenced by any other type, excluding EIP712Domain)
+		const typeNames = Object.keys(types).filter((t) => t !== "EIP712Domain");
+		if (typeNames.length === 0) {
+			throw new Error("signTypedData: types must contain at least one type definition (excluding EIP712Domain)");
+		}
+
+		// Validate each type has valid field definitions
+		for (const typeName of typeNames) {
+			const fields = types[typeName];
+			if (!Array.isArray(fields)) {
+				throw new Error(`signTypedData: type "${typeName}" must have an array of field definitions`);
+			}
+			for (const field of fields) {
+				if (!field.name || typeof field.name !== "string") {
+					throw new Error(`signTypedData: field in type "${typeName}" must have a "name" string`);
+				}
+				if (!field.type || typeof field.type !== "string") {
+					throw new Error(`signTypedData: field in type "${typeName}" must have a "type" string`);
+				}
+			}
 		}
 	}
 }
